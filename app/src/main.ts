@@ -14,9 +14,10 @@
 
 import { OsEventTypeList, waitForEvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { getTextWidth, measureTextWrap, pxTruncate } from '@evenrealities/pretext'
-import { streamTopic, transcribe, type TopicParams } from './api'
+import { accessKind, setCredentials, streamTopic, transcribe, type Credentials, type TopicParams } from './api'
 import { concatBytes, toBytes } from './audio'
 import {
+  API_TOKEN,
   CANVAS_W,
   COVER_MS,
   COVER_TEXT,
@@ -72,6 +73,35 @@ const HOME_LINES = ['Rabbit Hole', 'Press, say a topic, press again', 'Swipe: to
 
 const bridge = await waitForEvenAppBridge()
 const glass = new Glass(bridge)
+
+/**
+ * The access code or API keys this reader entered on the phone-side page, kept on the
+ * phone. A build made for development may carry a default access code.
+ */
+let credentials: Credentials = { code: API_TOKEN, anthropic: '', elevenlabs: '' }
+try {
+  const stored = JSON.parse(String(await bridge.getLocalStorage('credentials'))) as Partial<Credentials>
+  credentials = {
+    code: typeof stored.code === 'string' && stored.code ? stored.code : API_TOKEN,
+    anthropic: typeof stored.anthropic === 'string' ? stored.anthropic : '',
+    elevenlabs: typeof stored.elevenlabs === 'string' ? stored.elevenlabs : '',
+  }
+} catch {
+  /* nothing stored yet */
+}
+setCredentials(credentials)
+
+/** The last four characters of a saved value: enough to recognise it, not enough to use it. */
+const savedHint = (value: string) => (value ? `...${value.slice(-4)}` : '')
+
+async function saveCredentials(next: Credentials) {
+  credentials = next
+  setCredentials(next)
+  await bridge.setLocalStorage('credentials', JSON.stringify(next)).catch(() => undefined)
+  // The home screen says whether keys are still needed, so redraw it.
+  if (state === 'home') await showHome()
+  refresh()
+}
 
 /** Titles of topics already opened, newest first. Kept on the phone between sessions. */
 let history: string[] = await bridge
@@ -135,7 +165,9 @@ function transition(step: () => Promise<void> | void) {
  */
 async function showHome() {
   const width = innerWidth(COVER_TEXT)
-  const text = HOME_LINES.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
+  // Until an access code or key has been entered, nothing can load: say where to add one.
+  const lines = accessKind() === 'none' ? ['Rabbit Hole', 'First open this app on your phone', 'and add your API keys'] : HOME_LINES
+  const text = lines.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
   const shown = await glass.cover(text, homeArt).catch(err => {
     console.warn('home picture failed:', err)
     return false
@@ -670,6 +702,15 @@ function refresh() {
       history,
       // The section's own picture when it has one, otherwise the topic's.
       image: (state === 'reading' && reader.currentFigure()) || active?.image,
+      access: {
+        kind: accessKind(),
+        speech: !!(credentials.code || credentials.elevenlabs),
+        saved: {
+          code: savedHint(credentials.code),
+          anthropic: savedHint(credentials.anthropic),
+          elevenlabs: savedHint(credentials.elevenlabs),
+        },
+      },
       choices: choices ?? undefined,
       error: errorText || undefined,
     })
@@ -691,6 +732,17 @@ mountUi({
   speed: direction =>
     void transition(() => changeSpeed(Math.min(WPM_MAX, Math.max(WPM_MIN, reader.wpm + direction * WPM_STEP)))),
   back: () => void transition(goBack),
+  saveSettings: entered =>
+    void transition(() =>
+      saveCredentials({
+        // An empty field keeps what was there. Entering your own key drops a default code,
+        // and entering a code makes it the one in use.
+        code: entered.code || (entered.anthropic ? '' : credentials.code),
+        anthropic: entered.anthropic || credentials.anthropic,
+        elevenlabs: entered.elevenlabs || credentials.elevenlabs,
+      }),
+    ),
+  clearSettings: () => void transition(() => saveCredentials({ code: '', anthropic: '', elevenlabs: '' })),
 })
 
 await showHome()

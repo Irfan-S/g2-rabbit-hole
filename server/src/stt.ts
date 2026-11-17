@@ -66,9 +66,8 @@ async function deepgram(wav: Uint8Array<ArrayBuffer>): Promise<string> {
   return data.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? ''
 }
 
-async function elevenlabs(wav: Uint8Array<ArrayBuffer>): Promise<string> {
-  const key = process.env.ELEVENLABS_API_KEY
-  if (!key) throw new Error('ELEVENLABS_API_KEY is not set on the server')
+async function elevenlabs(wav: Uint8Array<ArrayBuffer>, key: string): Promise<string> {
+  if (!key) throw new Error('Speaking a topic needs an ElevenLabs API key. Add one in the app settings, or type the topic on your phone.')
   const form = new FormData()
   form.append('model_id', process.env.STT_MODEL ?? 'scribe_v3')
   form.append('file', new Blob([wav], { type: 'audio/wav' }), 'topic.wav')
@@ -77,6 +76,7 @@ async function elevenlabs(wav: Uint8Array<ArrayBuffer>): Promise<string> {
     headers: { 'xi-api-key': key },
     body: form,
   })
+  if (res.status === 401) throw new Error('The ElevenLabs API key was rejected. Check it in the app settings.')
   if (!res.ok) throw new Error(`ElevenLabs returned ${res.status}: ${await res.text()}`)
   const data = (await res.json()) as { text?: string }
   return data.text ?? ''
@@ -98,10 +98,14 @@ async function openai(wav: Uint8Array<ArrayBuffer>): Promise<string> {
   return data.text ?? ''
 }
 
-export async function transcribe(pcm: Uint8Array): Promise<string> {
+/**
+ * `elevenLabsKey` is whose ElevenLabs key to use: the server's own or the caller's.
+ * The other providers are only ever the server owner's choice and read their key from the environment.
+ */
+export async function transcribe(pcm: Uint8Array, elevenLabsKey = process.env.ELEVENLABS_API_KEY ?? ''): Promise<string> {
   const provider = (process.env.STT_PROVIDER ?? 'elevenlabs').toLowerCase()
   const wav = pcmToWav(pcm)
-  if (provider === 'elevenlabs') return elevenlabs(wav)
+  if (provider === 'elevenlabs') return elevenlabs(wav, elevenLabsKey)
   if (provider === 'deepgram') return deepgram(wav)
   if (provider === 'openai') return openai(wav)
   throw new Error(`Unknown STT_PROVIDER "${provider}" (use "elevenlabs", "deepgram" or "openai")`)

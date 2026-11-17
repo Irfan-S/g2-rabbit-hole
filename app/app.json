@@ -1,8 +1,8 @@
 {
-  "package_id": "com.example.rabbithole",
+  "package_id": "io.github.irfans.rabbithole",
   "edition": "202601",
   "name": "Rabbit Hole",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "min_app_version": "2.2.10",
   "min_sdk_version": "0.0.16",
   "entrypoint": "index.html",
@@ -15,7 +15,7 @@
       "name": "network",
       "desc": "Fetch topic breakdowns from your Rabbit Hole backend.",
       "whitelist": [
-        "https://YOUR-BACKEND.example.com",
+        "https://139.84.135.111",
         "https://upload.wikimedia.org",
         "https://thumb.wikimedia.org"
       ]

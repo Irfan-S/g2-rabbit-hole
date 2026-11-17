@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { serve } from '@hono/node-server'
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
@@ -84,7 +85,7 @@ function loadArticle(title: string): Promise<PromptArticle> {
  * - Anything else: the model chooses among the hits, or names a better article, which is
  *   used only if it really exists.
  */
-async function resolveTopic(query: string, signal: AbortSignal): Promise<string | Candidate[]> {
+async function resolveTopic(query: string, apiKey: string, signal: AbortSignal): Promise<string | Candidate[]> {
   const started = Date.now()
   const hits = await searchHits(query)
   const candidates: Candidate[] = hits
@@ -103,7 +104,7 @@ async function resolveTopic(query: string, signal: AbortSignal): Promise<string 
     // the pick then costs no extra wait unless it chooses something else.
     if (top) void loadArticle(top).catch(() => undefined)
     // A failed pick must not fail the topic: the top hit is still a reasonable answer.
-    const choice = await pickArticle(query, candidates, signal).catch(err => {
+    const choice = await pickArticle(apiKey, query, candidates, signal).catch(err => {
       console.warn('pick failed:', (err as Error).message)
       return ''
     })
@@ -159,23 +160,78 @@ function relay(send: Send) {
   }
 }
 
-export const app = new Hono()
+/** Whose API keys a request runs on. */
+interface Keys {
+  anthropic: string
+  elevenlabs: string
+  /** True when they are the server owner's keys, false when the caller brought their own. */
+  owner: boolean
+}
+
+export const app = new Hono<{ Variables: { keys: Keys } }>()
 
 app.use(
   '*',
   cors({
     origin: '*',
     allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'X-App-Token'],
+    allowHeaders: ['Content-Type', 'X-App-Token', 'X-Anthropic-Key', 'X-ElevenLabs-Key'],
   }),
 )
 
 app.get('/health', c => c.json({ ok: true }))
 
-// Everything under /api needs the shared token when one is configured.
+const sameSecret = (given: string, expected: string) =>
+  given.length === expected.length && timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+
+// People using their own keys cost the owner nothing in API fees, but each topic still
+// takes about a second of this server's processor. Cap what one address can ask for.
+const OWN_KEY_LIMIT = 60
+const OWN_KEY_WINDOW_MS = 10 * 60 * 1000
+// ponytail: kept in memory per process, so it resets on restart and is per-instance.
+// Move it to a shared store if this ever runs as more than one server.
+const recentByAddress = new Map<string, number[]>()
+
+function underLimit(address: string): boolean {
+  const now = Date.now()
+  const recent = (recentByAddress.get(address) ?? []).filter(time => now - time < OWN_KEY_WINDOW_MS)
+  const allowed = recent.length < OWN_KEY_LIMIT
+  if (allowed) recent.push(now)
+  if (recentByAddress.size > 5000) recentByAddress.clear() // crude bound on memory
+  recentByAddress.set(address, recent)
+  return allowed
+}
+
+/**
+ * Everything under /api runs on someone's API keys. Two ways in:
+ * - the owner's access code (X-App-Token = APP_TOKEN): the server's own keys are used;
+ * - the caller's own keys (X-Anthropic-Key, and X-ElevenLabs-Key for speech): theirs are
+ *   used for that request only. They are never stored or logged.
+ * With no APP_TOKEN configured (local development) the server's keys are open to all.
+ */
 app.use('/api/*', async (c, next) => {
-  if (APP_TOKEN && c.req.header('x-app-token') !== APP_TOKEN) {
-    return c.json({ error: 'Missing or wrong X-App-Token' }, 401)
+  const code = c.req.header('x-app-token') ?? ''
+  const ownAnthropic = (c.req.header('x-anthropic-key') ?? '').trim()
+  const serverKeys: Keys = {
+    anthropic: process.env.ANTHROPIC_API_KEY ?? '',
+    elevenlabs: process.env.ELEVENLABS_API_KEY ?? '',
+    owner: true,
+  }
+  if (APP_TOKEN ? code !== '' && sameSecret(code, APP_TOKEN) : !ownAnthropic) {
+    c.set('keys', serverKeys)
+  } else if (ownAnthropic) {
+    const address = (c.req.header('x-forwarded-for') ?? '').split(',')[0]!.trim() || 'direct'
+    if (!underLimit(address)) return c.json({ error: 'Too many requests. Try again in a few minutes.' }, 429)
+    c.set('keys', {
+      anthropic: ownAnthropic,
+      elevenlabs: (c.req.header('x-elevenlabs-key') ?? '').trim(),
+      owner: false,
+    })
+  } else {
+    return c.json(
+      { error: code ? 'That access code is not right.' : 'Add an access code or your own API keys in the app settings.' },
+      401,
+    )
   }
   await next()
 })
@@ -187,7 +243,7 @@ app.post('/api/stt', async c => {
   if (pcm.length > MAX_AUDIO_BYTES) return c.json({ error: 'Recording too long' }, 413)
   if (MOCK) return c.json({ transcript: MOCK_SPOKEN_TOPIC, topic: MOCK_SPOKEN_TOPIC })
   try {
-    const transcript = await transcribe(pcm)
+    const transcript = await transcribe(pcm, c.get('keys').elevenlabs)
     const topic = cleanSpokenTopic(transcript)
     // Without this a wrong article cannot be traced to the mic, the transcript or the search.
     console.log(`stt ${(pcm.length / 32000).toFixed(1)}s heard=${JSON.stringify(transcript)} topic=${JSON.stringify(topic)}`)
@@ -208,6 +264,7 @@ app.get('/api/topic', c => {
   const q = c.req.query('q')?.trim()
   const exact = c.req.query('title')?.trim()
   if (!q && !exact) return c.json({ error: 'Pass ?q= or ?title=' }, 400)
+  const keys = c.get('keys')
 
   return ndjson(c, 'topic', async (send, signal) => {
     if (MOCK) {
@@ -220,7 +277,7 @@ app.get('/api/topic', c => {
       return
     }
 
-    const resolved = exact || (await resolveTopic(q!, signal))
+    const resolved = exact || (await resolveTopic(q!, keys.anthropic, signal))
     if (typeof resolved !== 'string') {
       await send({ type: 'choices', query: q!, options: resolved })
       return
@@ -239,7 +296,7 @@ app.get('/api/topic', c => {
     await send({ type: 'meta', title: article.title, url: article.url, license: LICENSE, cached: false, image: article.image })
 
     const out = relay(send)
-    await streamBreakdown(article.title, article.text, article.links, article.figures, out.emit, signal)
+    await streamBreakdown(keys.anthropic, article.title, article.text, article.links, article.figures, out.emit, signal)
     await out.flush()
 
     if (!out.blocks.some(block => block.kind === 'para')) throw new Error('The breakdown came back empty')
@@ -260,6 +317,7 @@ app.post('/api/ask', async c => {
   const passage = typeof body?.passage === 'string' ? body.passage.slice(0, 2000) : ''
   if (!title || title.length > 300) return c.json({ error: 'Pass the article title' }, 400)
   if (!question || question.length > 500) return c.json({ error: 'Pass a question of at most 500 characters' }, 400)
+  const keys = c.get('keys')
 
   return ndjson(c, 'ask', async (send, signal) => {
     if (MOCK) {
@@ -270,7 +328,7 @@ app.post('/api/ask', async c => {
     const article = await loadArticle(title)
     await send({ type: 'meta', title: question, url: article.url, license: LICENSE, cached: false })
     const out = relay(send)
-    await streamAnswer(article.title, article.text, article.links, question, passage, out.emit, signal)
+    await streamAnswer(keys.anthropic, article.title, article.text, article.links, question, passage, out.emit, signal)
     await out.flush()
     if (!out.blocks.some(block => block.kind === 'para')) throw new Error('The answer came back empty')
   })

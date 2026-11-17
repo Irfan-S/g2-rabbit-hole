@@ -1,13 +1,14 @@
 {
   "name": "g2-rabbit-hole-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "author": "Irfan",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "pack": "npm run build && evenhub pack app.json dist",
+    "pack": "VITE_API_TOKEN= npm run build && if grep -rqE '[0-9a-f]{64}' dist; then echo 'Refusing to pack: the build contains an access code'; exit 1; fi && evenhub pack app.json dist",
     "simulate": "evenhub-simulator http://localhost:5173",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

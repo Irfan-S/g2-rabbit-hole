@@ -5,6 +5,13 @@
 # certificates under that profile (valid about six days; Caddy renews them on its own).
 # Left to itself, Caddy would give an IP address a self-signed certificate that phones
 # reject, which is why the issuer is named explicitly here.
+{
+	# A client connecting to a bare IP address does not say which site it wants, and
+	# inside a container Caddy cannot tell from its own address either: without this
+	# the handshake fails even though the certificate was issued. Harmless for a hostname.
+	default_sni {$DOMAIN}
+}
+
 {$DOMAIN} {
 	tls {
 		issuer acme {

@@ -1,0 +1,13 @@
+Rabbit Hole turns Wikipedia into something you can read on your glasses.
+
+Say a topic. Rabbit Hole finds the article, rewrites it as a short, plain-language breakdown, and plays it one large word at a time in the middle of the display, with the paragraph alongside. Linked terms are marked: open one and you are a level deeper, then come back to where you were.
+
+- Speak a topic, or type it on your phone
+- Hold the ring to ask a question about what you are reading
+- Pictures from the article beside the section they belong to
+- Reopen topics you have read before from your history
+- Change the reading speed from the menu
+
+You need your own API keys to use it: an Anthropic key for the breakdowns, and an ElevenLabs key if you want to speak topics. Add them under "Keys and access" on the phone-side page. They are kept on your phone and sent only with your own requests.
+
+Text comes from Wikipedia (CC BY-SA 4.0) and is rewritten by Claude, so the wording differs from the article.

@@ -74,6 +74,20 @@ so the phone can reach the backend.
 Skip the spoken step while developing: open `http://localhost:5173/?topic=Entropy`,
 or type a topic on the phone-side page.
 
+## Whose API keys are used
+
+The backend runs every request on someone's keys, and there are two ways in:
+
+- **An access code.** The person running the backend sets `APP_TOKEN` and keeps it to
+  themselves. Entered in the app, it makes the backend use its own keys.
+- **Your own keys.** Anyone else enters an Anthropic key (and an ElevenLabs key, to speak
+  topics) in the app. Those are used for that person's requests only; the backend does
+  not store or log them, and limits each address to 60 requests per ten minutes.
+
+Both are typed into "Keys and access" on the phone-side page and kept on the phone.
+The packaged app contains neither: `npm run pack` builds without the access code and
+refuses to pack if one is found in the build.
+
 ## Installing it in the Even app
 
 The QR code only loads the app from your computer while the dev server runs. To keep it
@@ -91,7 +105,7 @@ on your phone, it has to go through Even Hub:
    ```bash
    npx evenhub login                      # once, in a terminal
    npm run pack                           # builds and writes out.ehpk
-   npx evenhub create out.ehpk --name "Rabbit Hole" --tagline "Learn anything, one word at a time"
+   npx evenhub create out.ehpk --name "Rabbit Hole" --tagline "Learn anything, one word at a time" --icon art/icon.png
    npx evenhub promote 0.1.0 --to beta
    npx evenhub testers add you@example.com
    ```
@@ -141,10 +155,8 @@ Without compose, the backend alone is `docker build -t rabbit-hole-server .` and
 `docker run -p 8787:8787 --env-file .env rabbit-hole-server`; it listens on `PORT` if
 the host sets one, and holds no keys in the image.
 
-A public listing goes through review in Even's developer portal, not the CLI. Before
-that, note that every reader would be using the backend's API keys: the shared
-`APP_TOKEN` is inside the package and can be read out of it, so it is not enough on
-its own for a public app.
+A public listing goes through review in Even's developer portal, not the CLI. The
+store icon is drawn by `app/art/icon.py`.
 
 The opening picture is drawn by `app/art/home.py`: `python3 art/home.py` rewrites
 `app/src/home.png`, which the app sends to the glasses, and `app/art/logo.png`, the

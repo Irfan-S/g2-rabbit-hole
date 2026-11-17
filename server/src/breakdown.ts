@@ -359,10 +359,15 @@ function tidy(text: string): string {
   return text.replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim()
 }
 
-let client: Anthropic | null = null
+/** A client for whoever's key this request runs on: the server's own, or the caller's. */
+function anthropic(apiKey: string): Anthropic {
+  if (!apiKey) throw new Error('No Anthropic API key. Add one in the app settings.')
+  return new Anthropic({ apiKey })
+}
 
 /** Runs one prompt and emits blocks as they complete. `what` names the call in the log. */
 async function streamBlocks(
+  apiKey: string,
   what: string,
   system: string,
   user: string,
@@ -372,10 +377,7 @@ async function streamBlocks(
   emit: (block: Block) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY is not set on the server')
-  }
-  client ??= new Anthropic()
+  const client = anthropic(apiKey)
   const parser = new BlockStreamParser(allowedTitles(links), emit, links, figures)
 
   const stream = client.messages
@@ -397,7 +399,14 @@ async function streamBlocks(
     )
     .on('text', delta => parser.push(delta))
 
-  const message = await stream.finalMessage()
+  const message = await stream.finalMessage().catch(err => {
+    // Say plainly when the key itself is the problem: with people bringing their own
+    // keys this is the most likely failure, and the raw API error is not readable.
+    if (err instanceof Anthropic.AuthenticationError) {
+      throw new Error('The Anthropic API key was rejected. Check it in the app settings.')
+    }
+    throw err
+  })
   parser.end()
   // One line per call, so real token use (and so cost) can be read off the log.
   console.log(
@@ -439,9 +448,14 @@ export function matchCandidate(reply: string, candidates: Candidate[]): string {
  * "P50 probability distribution" to "Average" with "Percentile" sitting second.
  * Returns '' if the model gives nothing usable.
  */
-export async function pickArticle(query: string, candidates: Candidate[], signal?: AbortSignal): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) return ''
-  client ??= new Anthropic()
+export async function pickArticle(
+  apiKey: string,
+  query: string,
+  candidates: Candidate[],
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!apiKey) return ''
+  const client = anthropic(apiKey)
   const list = candidates.map((c, i) => `${i + 1}. ${c.title}${c.description ? `: ${c.description}` : ''}`).join('\n')
   const message = await client.messages.create(
     {
@@ -464,6 +478,7 @@ export async function pickArticle(query: string, candidates: Candidate[], signal
 
 /** Streams a breakdown of the article. */
 export function streamBreakdown(
+  apiKey: string,
   title: string,
   articleText: string,
   links: ArticleLink[],
@@ -472,11 +487,12 @@ export function streamBreakdown(
   signal?: AbortSignal,
 ): Promise<void> {
   const user = buildUserPrompt(title, articleText, figures)
-  return streamBlocks(`breakdown "${title}"`, SYSTEM_PROMPT, user, MAX_TOKENS, links, figures, emit, signal)
+  return streamBlocks(apiKey, `breakdown "${title}"`, SYSTEM_PROMPT, user, MAX_TOKENS, links, figures, emit, signal)
 }
 
 /** Streams a short answer to a question the reader asked while on `passage` of the article. */
 export function streamAnswer(
+  apiKey: string,
   title: string,
   articleText: string,
   links: ArticleLink[],
@@ -486,5 +502,5 @@ export function streamAnswer(
   signal?: AbortSignal,
 ): Promise<void> {
   const user = buildAnswerPrompt(title, articleText, question, passage)
-  return streamBlocks(`answer "${title}" q=${JSON.stringify(question)}`, ANSWER_PROMPT, user, 1024, links, [], emit, signal)
+  return streamBlocks(apiKey, `answer "${title}" q=${JSON.stringify(question)}`, ANSWER_PROMPT, user, 1024, links, [], emit, signal)
 }

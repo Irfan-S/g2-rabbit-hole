@@ -20,6 +20,13 @@ export interface UiModel {
   history: string[]
   /** Meanings to choose between when the request named several things. */
   choices?: { query: string; options: Candidate[] }
+  /** How the backend is being reached, and whether speech will work. */
+  access: {
+    kind: 'code' | 'keys' | 'none'
+    speech: boolean
+    /** For each field, the end of what is saved (for example "...1a2b"), or '' if nothing is. */
+    saved: { code: string; anthropic: string; elevenlabs: string }
+  }
   /** The topic's main picture. */
   image?: LeadImage
   error?: string
@@ -30,6 +37,10 @@ export interface UiHandlers {
   openLink(title: string): void
   /** Reopen a topic from the history by its exact title. */
   openRead(title: string): void
+  /** Save what was typed in the settings form; an empty field leaves that value as it was. */
+  saveSettings(entered: { code: string; anthropic: string; elevenlabs: string }): void
+  /** Forget the access code and keys stored on this phone. */
+  clearSettings(): void
   toggle(): void
   sentence(direction: -1 | 1): void
   speed(direction: -1 | 1): void
@@ -48,6 +59,20 @@ export function mountUi(handlers: UiHandlers) {
         <h1>Rabbit Hole</h1>
         <span id="state" class="chip"></span>
       </header>
+      <details class="card" id="settings">
+        <summary>Keys and access</summary>
+        <p id="access" class="muted"></p>
+        <form id="settingsForm">
+          <label>Access code <span id="savedCode" class="saved"></span><input id="setCode" type="password" autocomplete="off" /></label>
+          <p class="muted">Or use your own keys. They stay on this phone and are sent only with your requests.</p>
+          <label>Anthropic API key <span id="savedAnthropic" class="saved"></span><input id="setAnthropic" type="password" autocomplete="off" /></label>
+          <label>ElevenLabs API key <span id="savedElevenlabs" class="saved"></span><input id="setElevenlabs" type="password" autocomplete="off" /></label>
+          <div class="controls">
+            <button type="submit">Save</button>
+            <button type="button" data-act="forget">Forget all</button>
+          </div>
+        </form>
+      </details>
       <form id="topicForm">
         <input id="topic" type="text" placeholder="Type a topic, or ?a question about this one" autocomplete="off" />
         <button type="submit">Go</button>
@@ -87,6 +112,29 @@ export function mountUi(handlers: UiHandlers) {
     if (input) input.value = ''
   })
 
+  app.querySelector<HTMLFormElement>('#settingsForm')?.addEventListener('submit', event => {
+    event.preventDefault()
+    const field = (id: string) => app.querySelector<HTMLInputElement>(id)
+    handlers.saveSettings({
+      code: field('#setCode')?.value.trim() ?? '',
+      anthropic: field('#setAnthropic')?.value.trim() ?? '',
+      elevenlabs: field('#setElevenlabs')?.value.trim() ?? '',
+    })
+    // Typed secrets do not stay on screen once saved.
+    for (const id of ['#setCode', '#setAnthropic', '#setElevenlabs']) {
+      const input = field(id)
+      if (input) input.value = ''
+    }
+  })
+
+  // Keep the field being typed in clear of the keyboard, once the keyboard has opened.
+  app.addEventListener('focusin', event => {
+    const field = event.target as HTMLElement
+    if (field.tagName === 'INPUT') {
+      window.setTimeout(() => field.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+    }
+  })
+
   app.addEventListener('click', event => {
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-act],[data-link],[data-read]')
     if (!target) return
@@ -100,6 +148,7 @@ export function mountUi(handlers: UiHandlers) {
       case 'slower': return handlers.speed(-1)
       case 'faster': return handlers.speed(1)
       case 'back': return handlers.back()
+      case 'forget': return handlers.clearSettings()
     }
   })
 }
@@ -137,6 +186,32 @@ export function renderUi(model: UiModel) {
     'history',
     model.history.map(title => `<button class="link" data-read="${escapeHtml(title)}">${escapeHtml(title)}</button>`).join(''),
   )
+  const access =
+    model.access.kind === 'code'
+      ? 'Using an access code.'
+      : model.access.kind === 'keys'
+        ? `Using your own keys. ${model.access.speech ? 'Speaking a topic works.' : 'No ElevenLabs key, so topics must be typed here.'}`
+        : 'Nothing set yet: topics will not load until you add an access code or an Anthropic key.'
+  set('access', escapeHtml(access))
+  // Each field says whether something is already saved for it. Only the last few
+  // characters are shown, enough to tell which key it is.
+  const fields: Array<[string, string, string, string]> = [
+    ['savedCode', 'setCode', model.access.saved.code, 'if you were given one'],
+    ['savedAnthropic', 'setAnthropic', model.access.saved.anthropic, 'sk-ant-...'],
+    ['savedElevenlabs', 'setElevenlabs', model.access.saved.elevenlabs, 'needed to speak a topic'],
+  ]
+  for (const [labelId, inputId, saved, hint] of fields) {
+    set(labelId, saved ? escapeHtml(`saved (${saved})`) : '')
+    const input = document.getElementById(inputId) as HTMLInputElement | null
+    const placeholder = saved ? 'saved: type a new one to replace it' : hint
+    if (input && input.placeholder !== placeholder) input.placeholder = placeholder
+  }
+  const settings = document.getElementById('settings') as HTMLDetailsElement | null
+  // Open the settings by themselves the first time, when there is nothing to read yet.
+  if (settings && model.access.kind === 'none' && !settings.dataset.shown) {
+    settings.open = true
+    settings.dataset.shown = '1'
+  }
   const photoLink = document.getElementById('photoLink') as HTMLAnchorElement | null
   const photo = document.getElementById('photo') as HTMLImageElement | null
   if (photoLink && photo) {

@@ -1,8 +1,35 @@
 import { API_BASE, API_TOKEN } from './config'
 import type { StreamEvent } from './types'
 
+/**
+ * How this reader gets to use the backend: the owner's access code, or their own API keys.
+ * Entered on the phone-side page and kept on the phone. A build may carry a default code
+ * (VITE_API_TOKEN) for development; a published build carries none.
+ */
+export interface Credentials {
+  code: string
+  anthropic: string
+  elevenlabs: string
+}
+
+let credentials: Credentials = { code: API_TOKEN, anthropic: '', elevenlabs: '' }
+
+export function setCredentials(next: Credentials) {
+  credentials = next
+}
+
+/** 'code', 'keys', or 'none' when nothing has been entered yet. */
+export function accessKind(): 'code' | 'keys' | 'none' {
+  return credentials.code ? 'code' : credentials.anthropic ? 'keys' : 'none'
+}
+
 function headers(extra: Record<string, string> = {}): Record<string, string> {
-  return API_TOKEN ? { 'X-App-Token': API_TOKEN, ...extra } : extra
+  // With an access code the reader's own keys are not needed, so they are not sent.
+  if (credentials.code) return { 'X-App-Token': credentials.code, ...extra }
+  const own: Record<string, string> = {}
+  if (credentials.anthropic) own['X-Anthropic-Key'] = credentials.anthropic
+  if (credentials.elevenlabs) own['X-ElevenLabs-Key'] = credentials.elevenlabs
+  return { ...own, ...extra }
 }
 
 /** Splits an NDJSON byte stream into events, tolerating chunks that end mid-line. */

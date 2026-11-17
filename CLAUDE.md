@@ -166,11 +166,78 @@ encryption. Checked the same day: Let's Encrypt IP certificates are generally av
 only under its `shortlived` profile (160 hours), and Caddy's ACME issuer has a `profile`
 option (marked experimental). So the Caddyfile names the ACME issuer explicitly (for an IP
 address Caddy would otherwise self-sign) with `profile {$ACME_PROFILE:classic}`; set
-`ACME_PROFILE=shortlived` with an IP in `DOMAIN`. Untested: whether Caddy actually completes
-an IP order. The user plans a Vultr Cloud Compute 1 vCPU / 1 GB with Ubuntu LTS. In production (`NODE_ENV=production`, set by the Dockerfile) the server now exits
-at start if `APP_TOKEN` is empty. The token path was checked live on a local production-mode
-run: 401 without or with a wrong `X-App-Token`, normal service with the right one, `/health`
-open, CORS preflight for the header passes.
+`ACME_PROFILE=shortlived` with an IP in `DOMAIN`.
+
+**Deployed 2026-11-17** on the user's Vultr server (Ubuntu 24.04, 1 vCPU / 1 GB; its address
+is in `app/.env.local` once the app points at it, deliberately not written in this public
+repository). Docker and Compose came from Ubuntu's packages (`docker.io`,
+`docker-compose-v2`); ufw allows 22, 80, 443; the code is cloned at `/opt/g2-rabbit-hole`
+and runs with `docker compose up -d --build` in `server/`. Verified there:
+- the image builds (546 MB);
+- Caddy obtained a Let's Encrypt certificate for the bare IP (http-01, shortlived profile,
+  six days) and https to the IP is trusted from a Mac;
+- that needed `default_sni {$DOMAIN}` in the Caddyfile's global options: a client connecting
+  to an IP sends no server name, and in a container Caddy cannot infer it, so the handshake
+  failed with "tlsv1 alert internal error" until it was added;
+- through https: 401 without or with a wrong token, a topic streams line by line with it;
+- idle memory: backend 46 MB, Caddy 11 MB, about 525 MB of the server free.
+The server's `.env` was first written with `MOCK=1` and no API keys, to test all of the above
+without putting keys on it. The user then approved copying the keys from this Mac's
+`server/.env` over SSH (the server keeps its own generated `APP_TOKEN`). Real requests through
+the server then worked: topics, a question and speech-to-text. First paragraph there is 5 to
+6 s for an article Wikipedia has not served recently (the fetch takes 1.5 to 1.9 s and parsing
+0.3 to 0.5 s on that CPU); the 2.5 s seen earlier from the Mac was for pages already warm.
+`app/.env.local` now points the app at the server (https address plus the token; the old LAN
+value was `http://192.168.0.15:8787` with an empty token), and the simulator loaded a topic
+through it with no console errors. The user then confirmed a topic loads on the real glasses
+through the server. Remaining for an installed build: the server's address in
+the `network` whitelist of `app/app.json` (which is public in the repository), a real
+`package_id`, and the user's Even Hub sign-in.
+**Bring your own key (2026-11-17, the user's "route 1").** The user wants their API keys used
+only by themselves, with others entering their own. So `/api/*` now accepts either
+`X-App-Token` = `APP_TOKEN` (the owner's access code: server keys are used) or the caller's
+`X-Anthropic-Key` (+ `X-ElevenLabs-Key` for speech), used for that request only, never stored
+or logged, capped at 60 requests per 10 minutes per address (`underLimit` in `index.ts`).
+The app has a "Keys and access" form on the phone page (`ui.ts`); values live in
+`bridge.setLocalStorage('credentials')` and go out as headers (`api.ts`). The home screen
+tells a reader with nothing set to add keys on the phone. `npm run pack` blanks
+`VITE_API_TOKEN` and refuses to pack if a 64-hex string is in the build, so the published
+package holds no access code (the dev build still takes one from `app/.env.local`).
+Verified through the deployed server: 401 with no or wrong credentials, topics with the
+access code and with own keys, a readable error for a rejected key, speech with own keys.
+The form was exercised in a browser, not on a phone. The server got this code by rsync, ahead
+of GitHub. The other option considered ("route 2", calling the APIs straight from the phone,
+no server) was not chosen.
+For the store: `app/art/icon.png` (24 x 24, drawn by `art/icon.py`), and the server's address
+is now in `app.json`'s network whitelist.
+
+**On Even Hub since 2026-11-17.** The user signed in (`npx evenhub login`; Developer account)
+and chose the permanent app ID `io.github.irfans.rabbithole`. Done with the CLI from `app/`:
+`npm run pack`, then `evenhub create out.ehpk --name "Rabbit Hole" --tagline "Learn anything,
+one word at a time" --description-file store-description.txt --icon art/icon.png` (the icon
+passed Even's checks), `evenhub testers add <their account email>`, and
+`evenhub promote 0.1.0 --to beta`. State: build 0.1.0, Private, beta -> 0.1.0, public -> none,
+one tester Invited. The user must accept the invitation email (valid seven days) before the
+beta build can be installed in the Even app. Not yet confirmed installed. A public listing is
+a review step in Even's developer portal, not the CLI.
+Next version: bump `version` in `app.json`, `npm run pack`, `npx evenhub upload out.ehpk -m
+"<what changed>"`, `npx evenhub promote <version> --to beta`.
+The user also raised a GitHub pipeline (build, check, package, perhaps upload): discussed,
+not built.
+**0.1.1 (same day).** The user installed the beta and reported that the phone page would not
+scroll properly inside the Even app until a field had been tapped, which made the keys form
+hard to reach. Changed: the page scrolls inside `#app` instead of as a document
+(`html, body { overflow: hidden }`), fields are 16 px (an iPhone zooms on smaller ones), the
+"Keys and access" form is the first thing on the page, the focused field is scrolled to the
+middle after the keyboard opens, and `main` has bottom padding to clear the keyboard. Checked
+at a 375 x 812 viewport in a browser; uploaded and promoted to beta as 0.1.1. Whether it
+fixes the behaviour inside the Even app is unconfirmed.
+**0.1.2.** At the user's request each field in "Keys and access" shows whether a value is
+already saved, with its last four characters ("saved (...1a2b)"); the field itself stays empty
+so the secret is never rendered. Checked in a browser; uploaded and promoted to beta.
+The user then confirmed, on the installed beta inside the Even app, that the page scrolls
+properly and the saved markers work ("all fixed"). So the installed build, the keys form and
+credentials stored on the phone are all confirmed on a real phone.
 
 ## Motion while walking (thought through, nothing built)
 
