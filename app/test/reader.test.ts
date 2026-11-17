@@ -197,6 +197,47 @@ describe('Reader sentence stepping', () => {
     expect(shown[shown.length - 1]).toBe('One')
   })
 
+  it('while playing, repeated swipes back walk back through the sentences', async () => {
+    // 60 wpm: each word stays up for a second or more, so positions are easy to pin down.
+    const { reader, shown, clock } = setup(60)
+    reader.addBlock(p1) // "One two three. Four five six. Seven eight nine."
+    reader.finish()
+    reader.play()
+    while (shown[shown.length - 1] !== 'eight') await clock.advance(100)
+
+    reader.seekSentence(-1) // restarts the sentence being read
+    await clock.advance(1)
+    expect(shown[shown.length - 1]).toBe('Seven')
+
+    await clock.advance(1200) // the reader moves on a word, as it always has by the next swipe
+    expect(shown[shown.length - 1]).toBe('eight')
+    reader.seekSentence(-1) // soon after: one sentence further back, not "Seven" again
+    await clock.advance(1)
+    expect(shown[shown.length - 1]).toBe('Four')
+
+    await clock.advance(1200)
+    reader.seekSentence(-1)
+    await clock.advance(1)
+    expect(shown[shown.length - 1]).toBe('One')
+  })
+
+  it('a swipe back after a pause in swiping restarts the current sentence again', async () => {
+    const { reader, shown, clock } = setup(60)
+    reader.addBlock(p1)
+    reader.finish()
+    reader.play()
+    while (shown[shown.length - 1] !== 'eight') await clock.advance(100)
+    reader.seekSentence(-1)
+    await clock.advance(1)
+    expect(shown[shown.length - 1]).toBe('Seven')
+    while (shown[shown.length - 1] !== 'nine.') await clock.advance(100)
+    await clock.advance(900) // still on "nine.", now about three seconds after the first swipe
+    expect(shown[shown.length - 1]).toBe('nine.')
+    reader.seekSentence(-1)
+    await clock.advance(1)
+    expect(shown[shown.length - 1]).toBe('Seven')
+  })
+
   it('forward moves to the next sentence and across paragraphs', async () => {
     const { reader, shown, clock } = await at(0)
     const seen: string[] = []

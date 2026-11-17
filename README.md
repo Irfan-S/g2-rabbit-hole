@@ -40,6 +40,9 @@ reading, then let go. The answer plays one level deeper, like a link, and Back r
 to where you were. The menu has the same thing as "Ask a question (speak)". On the
 phone-side page, type `?` followed by the question.
 
+A swipe back restarts the sentence being read; swipe back again within a couple of
+seconds to go to the one before, and so on.
+
 The menu has Resume, Ask a question, Open a link, Slower, Faster, Back to the parent
 topic, Topics you have read, New topic and Exit. It wraps around: swipe up on the first
 item to land on the last. "Open a link" lists the linked words, those in the current
