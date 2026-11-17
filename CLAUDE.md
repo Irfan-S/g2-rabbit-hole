@@ -121,7 +121,8 @@ out of step with the others. The user also asked for moonlight on the tree that 
 sense": the lit patches on the canopy rise and sink with the moon (it is to the upper left,
 so they sit on the upper left of each clump), and one leaf at a time glints in the shade. The user wants the steppy pixel look, so no in-between frames.
 `animateHome` in `main.ts` sends the next whole 288 x 144 picture (about 690 bytes as a PNG)
-with `Glass.coverFrame` once the previous one has arrived plus `HOME_FRAME_MS` (600), and
+with `Glass.coverFrame` once the previous one has arrived plus `HOME_FRAME_MS` (250; it was
+600 in 0.1.6; the user asked for faster frames, released to beta as 0.1.7 the same day), and
 stops after `HOME_ANIMATE_MS` (30 s) or on leaving the opening screen; `HOME_FRAME_MS = 0`
 makes it static again. In the simulator the eight frames cycle about every 0.7 s and stop at
 30 s (its page has to be kept awake with webview screenshots, or it sleeps after a few

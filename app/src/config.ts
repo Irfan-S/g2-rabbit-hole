@@ -89,7 +89,7 @@ export const COVER_MS = 3000
  * on top of however long the glasses take to show one, and how long it runs before
  * resting, so glasses left on the opening screen do not transmit for ever. 0 = no animation.
  */
-export const HOME_FRAME_MS = 600
+export const HOME_FRAME_MS = 250
 export const HOME_ANIMATE_MS = 30000
 
 export const innerWidth = (box: Box) => box.w - 2 * (box.pad + box.border)
