@@ -23,6 +23,7 @@ import {
   COVER_MS,
   HOME_ANIMATE_MS,
   HOME_FRAME_MS,
+  HOME_STILL_MS,
   COVER_TEXT,
   MAX_ASK_MS,
   MAX_LISTEN_MS,
@@ -189,29 +190,41 @@ async function showHome() {
     console.warn('home picture failed:', err)
     return false
   })
-  if (!shown) await glass.message(resume ? `${HOME_TEXT}\n${resume}` : HOME_TEXT)
-  else void animateHome()
+  if (!shown) {
+    await glass.message(resume ? `${HOME_TEXT}\n${resume}` : HOME_TEXT)
+    return
+  }
+  homeFrame = 0
+  void animateHome()
 }
 
 let homeFrames: Uint8Array[] | null = null
 let homeRun = 0
+/** The frame the opening screen is showing, so a paused animation carries on from it. */
+let homeFrame = 0
 
 /**
  * Plays the opening picture's frames in a loop (the moon bobs, the stars twinkle) while
- * the opening screen is up. Each frame is a whole new picture sent to the glasses, so one
- * is sent only after the last has arrived, and the loop stops after HOME_ANIMATE_MS.
+ * the opening screen is up and nothing else is going on: it starts once the screen has
+ * been left alone for HOME_STILL_MS, and `stopHomeAnimation` ends it on any input. Each
+ * frame is a whole new picture sent to the glasses, so one is sent only after the last
+ * has arrived, and the loop stops by itself after HOME_ANIMATE_MS.
  */
 async function animateHome() {
   if (!HOME_FRAME_MS || homeArt.length < 2) return
   const run = ++homeRun
+  const wait = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms))
   try {
     const frames = (homeFrames ??= await Promise.all(homeArt.map(url => photoPng(url))))
+    await wait(HOME_STILL_MS)
     const until = Date.now() + HOME_ANIMATE_MS
-    for (let i = 1; Date.now() < until; i++) {
-      await new Promise(resolve => window.setTimeout(resolve, HOME_FRAME_MS))
-      // Left the opening screen, or came back to it and started a newer loop.
+    while (Date.now() < until) {
+      // Left the opening screen, stopped by an input, or a newer loop has started.
       if (state !== 'home' || run !== homeRun) return
-      if (!(await glass.coverFrame(frames[i % frames.length]!))) return
+      const next = (homeFrame + 1) % frames.length
+      if (!(await glass.coverFrame(frames[next]!))) return
+      homeFrame = next
+      await wait(HOME_FRAME_MS)
     }
   } catch (err) {
     console.warn('home animation stopped:', err)
@@ -716,6 +729,16 @@ function eventTypeOf(envelope?: { eventType?: OsEventTypeList }): OsEventTypeLis
 }
 
 const unsubscribe = bridge.onEvenHubEvent(event => {
+  if (!event.audioEvent) {
+    // Any input stops the opening screen's animation before anything else happens. If the
+    // opening screen is still up once the input has been dealt with, it starts over.
+    homeRun++
+    window.setTimeout(() => {
+      void queue.then(() => {
+        if (state === 'home' && glass.current === 'cover') void animateHome()
+      })
+    }, 0)
+  }
   const audio = event.audioEvent?.audioPcm
   if (audio) {
     const bytes = state === 'listening' ? toBytes(audio) : null

@@ -91,6 +91,12 @@ export const COVER_MS = 3000
  */
 export const HOME_FRAME_MS = 250
 export const HOME_ANIMATE_MS = 30000
+/**
+ * The animation waits until the opening screen has been left alone this long, and any
+ * input stops it at once: its pictures share the Bluetooth link with whatever a press
+ * asks for, and on the glasses they made everything else feel slow.
+ */
+export const HOME_STILL_MS = 2000
 
 export const innerWidth = (box: Box) => box.w - 2 * (box.pad + box.border)
 export const innerHeight = (box: Box) => box.h - 2 * (box.pad + box.border)

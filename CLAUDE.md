@@ -128,7 +128,18 @@ makes it static again. In the simulator the eight frames cycle about every 0.7 s
 30 s (its page has to be kept awake with webview screenshots, or it sleeps after a few
 seconds). Unknown, and the reason for trying it: how fast real glasses redraw a full
 288 x 144 picture, and whether a press is delayed while a frame is on its way. If it
-stutters, raise `HOME_FRAME_MS` or animate only a strip of sky. The README logo is the first
+stutters, raise `HOME_FRAME_MS` or animate only a strip of sky. The user's report from the glasses on 0.1.7: the
+animation looks good, but everything else felt slow while it ran, and they asked for it to
+pause when a menu is opened or anything is done. The loop already ended once another screen
+was up, but it started the moment the opening screen appeared and only noticed a change at
+its next frame, so a press competed with a picture on its way. Now (released to beta as
+0.1.8 the same day, not yet tried on the glasses): it starts only after the opening screen has been left alone for `HOME_STILL_MS`
+(2 s), any input stops it at once (`homeRun++` at the top of the event handler) and it
+starts over, from the frame it was on, if the opening screen is still up afterwards. A
+frame already on its way when a press arrives cannot be recalled. In the simulator: first
+frame 2 s after the opening screen, a swipe opened the list and the display then stayed
+still, and closing the list brought the animation back 2 s later. If it still drags on the
+glasses, the next step is longer gaps between frames. The README logo is the first
 frame, so two of its stars changed brightness. Uploaded and promoted to beta as 0.1.6 with
 the user's go-ahead, to try on the glasses; not yet seen there.
 The static version was checked in the simulator only. While making it: the simulator, which says it matches the
