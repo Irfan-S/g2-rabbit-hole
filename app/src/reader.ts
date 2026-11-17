@@ -44,6 +44,9 @@ export interface LinkChoice {
   here: boolean
 }
 
+/** A second swipe back within this time means "further back", not "restart this sentence again". */
+const BACK_AGAIN_MS = 2500
+
 const systemClock: Clock = {
   now: () => Date.now(),
   setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms),
@@ -66,6 +69,8 @@ export class Reader {
   private waitingForMore = false
   private shownChunk = ''
   private lastWordAt = 0
+  /** When the reader last stepped back a sentence, to tell a repeated swipe from a fresh one. */
+  private lastBackAt = -Infinity
 
   constructor(
     private readonly view: ReaderView,
@@ -218,8 +223,15 @@ export class Reader {
 
     if (direction < 0) {
       const start = this.sentenceStart(this.b, this.w)
-      if (this.w > start) {
-        this.w = start // first press restarts the current sentence
+      // A swipe back restarts the current sentence; another one soon after goes a sentence
+      // further back. "Soon after" has to be judged by time, not position: while playing,
+      // the reader is always a few words into the sentence again by the next swipe, so a
+      // rule based on position restarted the same sentence for ever.
+      const now = this.clock.now()
+      const again = now - this.lastBackAt < BACK_AGAIN_MS
+      this.lastBackAt = now
+      if (this.w > start && !again) {
+        this.w = start
       } else if (start > 0) {
         this.w = this.sentenceStart(this.b, start - 1)
       } else if (this.b > 0) {

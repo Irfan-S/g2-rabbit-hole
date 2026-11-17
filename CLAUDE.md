@@ -235,6 +235,12 @@ fixes the behaviour inside the Even app is unconfirmed.
 **0.1.2.** At the user's request each field in "Keys and access" shows whether a value is
 already saved, with its last four characters ("saved (...1a2b)"); the field itself stays empty
 so the secret is never rendered. Checked in a browser; uploaded and promoted to beta.
+**0.1.3.** The user reported on the glasses that swiping forward stepped a sentence but
+swiping back did nothing. Cause: `seekSentence(-1)` restarted the current sentence unless the
+reader was on its first word, and while playing it never is by the next swipe, so every swipe
+restarted the same sentence. Now a second swipe back within `BACK_AGAIN_MS` (2.5 s) goes one
+sentence further back (`reader.ts`, two tests). Uploaded and promoted to beta; not yet
+confirmed on the glasses.
 The user chose the MIT licence (2026-11-17): `LICENSE` at the root (copyright Irfan), `license`
 in both `package.json` files, a section in the README and a line in the store description.
 The README now opens its tour with seven captures of the glasses display in `docs/screenshots/`
