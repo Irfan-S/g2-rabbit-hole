@@ -239,8 +239,8 @@ so the secret is never rendered. Checked in a browser; uploaded and promoted to 
 swiping back did nothing. Cause: `seekSentence(-1)` restarted the current sentence unless the
 reader was on its first word, and while playing it never is by the next swipe, so every swipe
 restarted the same sentence. Now a second swipe back within `BACK_AGAIN_MS` (2.5 s) goes one
-sentence further back (`reader.ts`, two tests). Uploaded and promoted to beta; not yet
-confirmed on the glasses.
+sentence further back (`reader.ts`, two tests). Uploaded and promoted to beta; the user
+confirmed on the installed app that swiping back now works.
 The user chose the MIT licence (2026-11-17): `LICENSE` at the root (copyright Irfan), `license`
 in both `package.json` files, a section in the README and a line in the store description.
 The README now opens its tour with seven captures of the glasses display in `docs/screenshots/`
@@ -310,6 +310,26 @@ Even Hub was then brought in step, with the user's go-ahead: 0.1.4 is on the bet
 they are on the free allowance), and the listing now opens "You can read a few topics a day
 for free". Not yet seen on the glasses or phone.
 
+## Resuming the previous session (built 2026-11-17; not committed, not on Even Hub)
+
+The user asked for an option at the start to resume the previous session exactly where it
+was stopped. `app/src/session.ts` + `persist` / `resumeSession` in `main.ts`: the trail
+(up to `SESSION_MAX_ENTRIES` = 4 levels, with their text) is stored under `session` and the
+word positions under `sessionAt` with `bridge.setLocalStorage`. The text is written only
+when it changes; positions on every pause, on Exit and exit events, and every 3 s while
+playing. The opening screen gets a fourth line, "Hold: resume Entropy (3/22)", holding the
+ring there resumes paused on the saved word, and the phone page has a Resume button.
+`reader.restore(position, exact)`: going back up the trail still restarts the sentence;
+resume passes `exact` (the first simulator run showed it landing on the sentence start).
+Checked in the simulator, within one simulator run across an app reload: pause mid-sentence,
+reload, the opening screen shows the line, hold, and the display is byte-identical to the
+one before the reload. Not checked: on the glasses and phone, in particular whether stored
+values survive closing the Even app (the same open question as for reading history), how
+close the saved word is when the app is closed while playing (up to 3 s behind unless an
+exit event arrives), and whether a hold on the opening screen is delivered by the ring
+there. A resumed topic is whatever had streamed when it was saved: one cut short by leaving
+ends where it stopped. Releasing it would be 0.1.5.
+
 ## Motion while walking (thought through, nothing built)
 
 True stabilisation is not possible from a plugin: the display is fixed to the head, a correction
@@ -373,7 +393,21 @@ crisp letters look good. Two-line headings are 21 px in the shorter frame (were 
 
 Handy for testing: start the simulator with `--automation-port 9898` and it serves
 `GET /api/screenshot/glasses` (PNG of the display) and `POST /api/input`
-(`{"action":"click"|"double_click"|"up"|"down"}`).
+(`{"action":"click"|"double_click"|"up"|"down"|"long_press"|"long_press_release"}`), plus
+`GET /api/screenshot/webview` (the phone page) and `GET /api/console`.
+Three things learned the hard way while testing resume (2026-11-17):
+- The simulator keeps `setLocalStorage` values in memory: they survive an app reload inside
+  one simulator run but not a restart of the simulator. To test anything stored, reload the
+  app (save a source file) instead of restarting it.
+- With its window in the background the simulator's page acts on a Vite reload only when
+  something pokes it: an input, or a webview screenshot. So after saving a file, take a
+  webview screenshot and wait for the display to change before sending any input.
+- **The simulator does record from this Mac's microphone now** (it used to hang instead).
+  A press on the opening screen or a hold while reading starts a recording, and the next
+  press or release sends it to the backend. During the resume test a hold arrived just as a
+  late reload put the app back on the opening screen, and 4.5 s of room audio was
+  transcribed by the server and looked up as a topic. Look at a screenshot before every
+  input; never send a batch of inputs across a reload.
 
 ## Decisions already made by the user
 

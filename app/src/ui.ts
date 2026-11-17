@@ -20,6 +20,8 @@ export interface UiModel {
   history: string[]
   /** Meanings to choose between when the request named several things. */
   choices?: { query: string; options: Candidate[] }
+  /** Set on the opening screen when there is a session to go back to: what to call it. */
+  resume?: string
   /** How the backend is being reached, and whether speech will work. */
   access: {
     kind: 'code' | 'keys' | 'none'
@@ -41,6 +43,8 @@ export interface UiHandlers {
   saveSettings(entered: { code: string; anthropic: string; elevenlabs: string }): void
   /** Forget the access code and keys stored on this phone. */
   clearSettings(): void
+  /** Reopen the session that was open when the app was last left. */
+  resume(): void
   toggle(): void
   sentence(direction: -1 | 1): void
   speed(direction: -1 | 1): void
@@ -77,6 +81,7 @@ export function mountUi(handlers: UiHandlers) {
         <input id="topic" type="text" placeholder="Type a topic, or ?a question about this one" autocomplete="off" />
         <button type="submit">Go</button>
       </form>
+      <button id="resume" data-act="resume" hidden></button>
       <p id="error" class="error" hidden></p>
       <section class="card">
         <div id="trail" class="muted"></div>
@@ -149,6 +154,7 @@ export function mountUi(handlers: UiHandlers) {
       case 'faster': return handlers.speed(1)
       case 'back': return handlers.back()
       case 'forget': return handlers.clearSettings()
+      case 'resume': return handlers.resume()
     }
   })
 }
@@ -237,6 +243,11 @@ export function renderUi(model: UiModel) {
   if (error) {
     error.hidden = !model.error
     error.textContent = model.error ?? ''
+  }
+  const resume = document.getElementById('resume') as HTMLButtonElement | null
+  if (resume) {
+    resume.hidden = !model.resume
+    resume.textContent = model.resume ? `Resume ${model.resume}` : ''
   }
   const back = document.getElementById('back') as HTMLButtonElement | null
   if (back) back.disabled = model.trail.length < 2

@@ -78,8 +78,10 @@ export const WORD_IMAGE = {
  * Cover card: a topic's main picture, shown once when the topic opens, with its title
  * and credit underneath. A picture is at most 288 x 144 on this display.
  */
-export const COVER_IMAGE = { x: (CANVAS_W - 288) / 2, y: 16, w: 288, h: 144 }
-export const COVER_TEXT: Box = { x: 0, y: 168, w: CANVAS_W, h: 120, pad: 4, border: 0 }
+export const COVER_IMAGE = { x: (CANVAS_W - 288) / 2, y: 4, w: 288, h: 144 }
+// Tall enough for four lines: the opening screen needs one more than a topic's cover does,
+// for the offer to resume.
+export const COVER_TEXT: Box = { x: 0, y: 152, w: CANVAS_W, h: 136, pad: 4, border: 0 }
 /** How long the cover stays up before reading starts (a press skips it). */
 export const COVER_MS = 3000
 

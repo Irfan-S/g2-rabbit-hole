@@ -43,6 +43,11 @@ phone-side page, type `?` followed by the question.
 A swipe back restarts the sentence being read; swipe back again within a couple of
 seconds to go to the one before, and so on.
 
+**Picking up where you stopped.** What you were reading is kept on the phone: the topic,
+any links or answers you had gone into, and the exact word. Next time the opening screen
+has one more line, "Hold: resume Entropy (3/22)". Hold the ring there (or tap the Resume
+button on the phone-side page) and you are back on that word, paused.
+
 The menu has Resume, Ask a question, Open a link, Slower, Faster, Back to the parent
 topic, Topics you have read, New topic and Exit. It wraps around: swipe up on the first
 item to land on the last. "Open a link" lists the linked words, those in the current

@@ -129,14 +129,16 @@ export class Reader {
     return { block: this.b, word: this.w }
   }
 
-  /** Jump to a saved position (used when stepping back up the trail). */
-  restore(position: { block: number; word: number }) {
+  /**
+   * Jump to a saved position. Stepping back up the trail restarts the sentence, so the
+   * reader is not dropped mid-thought; resuming a session (`exact`) keeps the very word.
+   */
+  restore(position: { block: number; word: number }, exact = false) {
     this.cancel()
     this.b = Math.min(Math.max(0, position.block), Math.max(0, this.items.length - 1))
     const max = Math.max(0, (this.items[this.b]?.words.length ?? 1) - 1)
     this.w = Math.min(Math.max(0, position.word), max)
-    // Resume from the start of the sentence, not mid-thought.
-    this.w = this.sentenceStart(this.b, this.w)
+    if (!exact) this.w = this.sentenceStart(this.b, this.w)
   }
 
   /** Links the reader can open: those in the current paragraph first, then the rest. */

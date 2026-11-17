@@ -11,6 +11,7 @@
 //             hold = ask a question about what you are reading; let go to send it
 //   menu    : swipe = move   press = choose   double press = close
 //   home    : press = speak a topic   swipe = topics already read   double press = exit
+//             hold = resume the session that was open when the app was last left
 
 import { OsEventTypeList, waitForEvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { getTextWidth, measureTextWrap, pxTruncate } from '@evenrealities/pretext'
@@ -42,6 +43,7 @@ import homeArt from './home.png'
 import { parseHistory, recordVisit } from './history'
 import { Reader } from './reader'
 import { placeLine } from './text'
+import { SESSION_MAX_ENTRIES, parseSession, sessionLabel, type SavedSession } from './session'
 import type { Block, Candidate, LeadImage } from './types'
 import { mountUi, renderUi } from './ui'
 
@@ -68,7 +70,7 @@ interface Entry {
 
 const HOME_TEXT =
   'Rabbit Hole\n\nPress, say a topic, then press again.\nSwipe for topics you have read.\n\nDouble press to exit.'
-/** The same, as three lines to sit under the home picture. */
+/** The same, as lines to sit under the home picture. */
 const HOME_LINES = ['Rabbit Hole', 'Press, say a topic, press again', 'Swipe: topics read.  Double press: exit']
 
 const bridge = await waitForEvenAppBridge()
@@ -106,6 +108,15 @@ let history: string[] = await bridge
   .getLocalStorage('history')
   .then(parseHistory)
   .catch(() => [])
+
+/**
+ * The session that was open when the app was last left, if there was one: the topics on
+ * the trail and the exact word each was at. Offered on the opening screen.
+ */
+let saved: SavedSession | null = parseSession(
+  await bridge.getLocalStorage('session').catch(() => null),
+  await bridge.getLocalStorage('sessionAt').catch(() => null),
+)
 
 let state: State = 'home'
 let trail: Entry[] = []
@@ -165,12 +176,65 @@ async function showHome() {
   const width = innerWidth(COVER_TEXT)
   // The same for everyone: a reader with no code or keys is on the server's free allowance,
   // and if there is none, the first topic fails with a message saying where to add keys.
-  const text = HOME_LINES.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
+  // With a session to go back to, one more line offers it.
+  const resume = saved ? pxTruncate(`Hold: resume ${sessionLabel(saved)}`, width - 8) : ''
+  const lines = resume ? [...HOME_LINES, resume] : HOME_LINES
+  const text = lines.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
   const shown = await glass.cover(text, homeArt).catch(err => {
     console.warn('home picture failed:', err)
     return false
   })
-  if (!shown) await glass.message(HOME_TEXT)
+  if (!shown) await glass.message(resume ? `${HOME_TEXT}\n${resume}` : HOME_TEXT)
+}
+
+// ── the saved session ──
+
+let sessionJson = ''
+let positionsJson = ''
+let positionsSavedAt = 0
+
+/**
+ * Writes the session to the phone so it can be resumed after the app is left. The topics
+ * are written only when they change; the positions, a few bytes, at most every three
+ * seconds while reading and at once when `now` is set (a pause, or the app closing).
+ */
+function persist(now = false) {
+  // Only levels with something to read: a topic still loading has nothing to resume.
+  const levels = trail.filter(entry => entry.blocks.some(block => block.kind === 'para')).slice(-SESSION_MAX_ENTRIES)
+  if (!levels.length) return
+  // The reader holds the active topic once it has been fed blocks, and knows the word.
+  if (active && fed > 0) active.position = reader.position()
+  const entries = levels.map(({ label, title, url, license, image, ask, blocks }) => ({ label, title, url, license, image, ask, blocks }))
+  const positions = levels.map(entry => entry.position)
+  saved = { entries, positions }
+
+  const nextSession = JSON.stringify(entries)
+  if (nextSession !== sessionJson) {
+    sessionJson = nextSession
+    void bridge.setLocalStorage('session', nextSession).catch(() => undefined)
+  }
+  const nextPositions = JSON.stringify(positions)
+  if (nextPositions === positionsJson || (!now && Date.now() - positionsSavedAt < 3000)) return
+  positionsJson = nextPositions
+  positionsSavedAt = Date.now()
+  void bridge.setLocalStorage('sessionAt', nextPositions).catch(() => undefined)
+}
+
+/** Reopens the saved session, paused on the word it was left at. */
+async function resumeSession() {
+  if (!saved) return
+  for (const entry of trail) entry.abort.abort()
+  choices = null
+  errorText = ''
+  trail = saved.entries.map((entry, i) => ({
+    ...entry,
+    // What was saved is all there is: a topic cut short by leaving ends where it stopped.
+    complete: true,
+    covered: true,
+    position: saved!.positions[i] ?? { block: 0, word: 0 },
+    abort: new AbortController(),
+  }))
+  await activate(trail[trail.length - 1]!, false, true)
 }
 
 async function goHome() {
@@ -208,7 +272,7 @@ async function enterReader(autoplay: boolean) {
 }
 
 /** Points the reader at an entry: either resumes it or shows a loading screen until blocks arrive. */
-async function activate(entry: Entry, autoplay: boolean) {
+async function activate(entry: Entry, autoplay: boolean, exact = false) {
   active = entry
   fed = 0
   reader.reset()
@@ -219,7 +283,7 @@ async function activate(entry: Entry, autoplay: boolean) {
     return
   }
   feedReader(entry)
-  reader.restore(entry.position)
+  reader.restore(entry.position, exact)
   await enterReader(autoplay)
 }
 
@@ -511,7 +575,13 @@ async function openMenu() {
   if (parent) menuActions.push({ label: `Back to: ${parent.title}`, run: goBack })
   menuActions.push({ label: 'Topics you have read', run: openHistory })
   menuActions.push({ label: 'New topic (speak)', run: () => startListening() })
-  menuActions.push({ label: 'Exit', run: () => void bridge.shutDownPageContainer(1) })
+  menuActions.push({
+    label: 'Exit',
+    run: () => {
+      persist(true) // so the exact word is kept even if no exit event follows
+      void bridge.shutDownPageContainer(1)
+    },
+  })
   await showMenu()
 }
 
@@ -563,6 +633,7 @@ async function handle(gesture: Gesture, listIndex?: number) {
     case 'home':
       if (gesture === 'click') return startListening()
       if (gesture === 'up' || gesture === 'down') return openHistory()
+      if (gesture === 'hold') return resumeSession()
       if (gesture === 'double') return void bridge.shutDownPageContainer(1)
       return
     case 'listening':
@@ -626,7 +697,10 @@ const unsubscribe = bridge.onEvenHubEvent(event => {
   const list = eventTypeOf(event.listEvent)
 
   if (sys === OsEventTypeList.SYSTEM_EXIT_EVENT || sys === OsEventTypeList.ABNORMAL_EXIT_EVENT) return cleanup()
-  if (sys === OsEventTypeList.FOREGROUND_EXIT_EVENT) return reader.pause()
+  if (sys === OsEventTypeList.FOREGROUND_EXIT_EVENT) {
+    reader.pause()
+    return persist(true)
+  }
 
   const DOUBLE = OsEventTypeList.DOUBLE_CLICK_EVENT
   if (sys === DOUBLE || text === DOUBLE || list === DOUBLE) return void transition(() => handle('double'))
@@ -653,6 +727,7 @@ let cleanedUp = false
 function cleanup() {
   if (cleanedUp) return
   cleanedUp = true
+  persist(true)
   reader.stop()
   for (const entry of trail) entry.abort.abort()
   void bridge.audioControl(false).catch(() => undefined)
@@ -681,6 +756,9 @@ function refresh() {
   refreshPending = true
   window.setTimeout(() => {
     refreshPending = false
+    // Whenever something changes (a new paragraph, a pause), keep the saved session current.
+    // A pause is saved at once; while playing, the timer below covers the words in between.
+    persist(!reader.playing)
     if (state === 'reading') {
       void glass.setStatus(statusText())
       void glass.setFigure(reader.currentFigure()?.url)
@@ -698,6 +776,7 @@ function refresh() {
       block: active ? reader.currentBlock() : undefined,
       links: active ? reader.links(MAX_MENU_LINKS).map(link => link.title) : [],
       history,
+      resume: state === 'home' && saved ? sessionLabel(saved) : undefined,
       // The section's own picture when it has one, otherwise the topic's.
       image: (state === 'reading' && reader.currentFigure()) || active?.image,
       access: {
@@ -730,6 +809,7 @@ mountUi({
   speed: direction =>
     void transition(() => changeSpeed(Math.min(WPM_MAX, Math.max(WPM_MIN, reader.wpm + direction * WPM_STEP)))),
   back: () => void transition(goBack),
+  resume: () => void transition(resumeSession),
   saveSettings: entered =>
     void transition(() =>
       saveCredentials({
@@ -745,6 +825,10 @@ mountUi({
 
 await showHome()
 refresh()
+// While reading, note the position every few seconds, in case the app is closed without warning.
+window.setInterval(() => {
+  if (state === 'reading' && reader.playing) persist()
+}, 3000)
 
 // Development shortcut: open the page with ?topic=Something to skip the spoken step.
 const preset = new URLSearchParams(window.location.search).get('topic')?.trim()

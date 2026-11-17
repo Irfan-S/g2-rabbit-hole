@@ -304,6 +304,10 @@ describe('Reader links and positions', () => {
     reader.restore({ block: 0, word: 4 }) // "five"
     await reader.redraw()
     expect(shown[shown.length - 1]).toBe('Four')
+    // resuming a session keeps the very word
+    reader.restore({ block: 0, word: 4 }, true)
+    await reader.redraw()
+    expect(shown[shown.length - 1]).toBe('five')
     reader.restore({ block: 99, word: 99 })
     await reader.redraw()
     await clock.advance(1)
