@@ -265,7 +265,7 @@ tokens; ElevenLabs Scribe $0.20 per hour of audio (read off their API pricing pa
 - A topic already in the server's 24-hour cache costs nothing (checked).
 `pickArticle` now logs its token use like the other calls.
 
-**Free daily allowance (built and deployed 2026-11-17; app wording not yet uploaded).**
+**Free daily allowance (built and deployed 2026-11-17; on Even Hub as 0.1.4).**
 On the server since the same day: the user made a separate Anthropic key and a separate
 ElevenLabs key for free use, and its `.env` has both plus `FREE_DAILY_BUDGET_USD=1` and
 `FREE_PER_ADDRESS=30` (the file before the change is kept beside it as `.env.before-free`).
@@ -288,11 +288,27 @@ per workspace, not per key, and cannot be set on the Default Workspace, so the f
 its own workspace; an ElevenLabs key can be restricted to speech-to-text and given a monthly
 credit limit. Why the cap matters: the average person costs a few cents a day, but the
 server's address is public in `app.json`, so a script is the real risk.
-Checked: unit tests, and a local server on the real services (two free topics, then 429 for
-everyone, wrong code 401, owner unaffected). Not checked: free speech-to-text live, and the
-separate keys (none exist yet). In the app the home screen no longer tells a reader with
-nothing set to add keys, and the phone page says they are on the free allowance; the store
-description says a few topics a day are free. Checked by type check and tests only.
+Checked before deployment: unit tests, and a local server on the real services (two free
+topics, then 429 for everyone, wrong code 401, owner unaffected).
+In the app the home screen no longer tells a reader with nothing set to add keys, and the
+phone page says they are on the free allowance; the store description file says a few topics
+a day are free.
+
+**Taken over by the main session the same day** (the feature was built in another session, on
+branch `claude/daily-cost-per-user-dd646f`, already merged into `main`; its worktree under
+`.claude/worktrees/` is clean and fully merged). Re-verified: 46 server and 41 app tests pass;
+the server's `src/`, Caddyfile, compose file and Dockerfile are byte-identical to this
+checkout; its startup log reports the free allowance on its own Anthropic key; both free keys
+differ from the main keys; a request with no credentials streams a topic through https and a
+wrong code gets 401. Reviewed the access rule: free use is only reached with no code and no
+key, per-address counts come from the address Caddy reports, and the daily total is a ceiling.
+Two things to know: the counters are in memory, so every restart of the backend starts the
+day's allowance again (the limits set on the keys themselves are the backstop), and free
+requests are flagged `owner: true` in `Keys`, which nothing reads yet.
+Even Hub was then brought in step, with the user's go-ahead: 0.1.4 is on the beta channel
+(the home screen no longer asks a reader without keys to add them, and the phone page says
+they are on the free allowance), and the listing now opens "You can read a few topics a day
+for free". Not yet seen on the glasses or phone.
 
 ## Motion while walking (thought through, nothing built)
 
