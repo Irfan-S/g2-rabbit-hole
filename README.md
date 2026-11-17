@@ -6,26 +6,26 @@ Speak a topic. The backend fetches the Wikipedia article, Claude rewrites it as 
 teaching breakdown, and the glasses play it one word at a time. Linked terms show
 in [brackets]; open one and you are a level deeper.
 
-```
- Quantum             |                          | +----------------+
- superposition       |                          | | The [double-   |
- 6/11                |        interfere         | | slit           |
- 200 wpm             |                          | | experiment] is |
- +--------+          |                          | | the classic    |
- | picture|          |                          | | case. A ...    |
- +--------+          |                          | +----------------+
-```
+## What it looks like
 
-Middle: the speed reader, one large word at the centre of the display. Right: the part
-of the paragraph being read. Left: topic, position and speed, with the picture that goes
-with the section underneath when the article has one.
+These are captures of the glasses display (576 x 288, green on black), shown at twice
+their size.
 
-If what you say is a name with several meanings ("mercury"), the glasses list them and
-you pick one. Otherwise Claude chooses the article that best matches what you said.
+| | |
+|---|---|
+| <img src="docs/screenshots/1-home.png" width="420" alt="Opening screen"> | **Opening screen.** Press the ring, say a topic, press again. Swipe to see topics you have read before; double press to leave. |
+| <img src="docs/screenshots/2-cover.png" width="420" alt="Cover card"> | **Cover.** While the breakdown is being written, the article's main picture is shown with its title and source. It moves on by itself after three seconds, or at a press. |
+| <img src="docs/screenshots/3-reading.png" width="420" alt="Reading"> | **Reading.** One large word at a time in the centre, where your eye already is. On the right, the paragraph it belongs to, with linked terms in [brackets]. On the left, the topic, how far along you are and the speed, with the picture for this section underneath. Press to pause, swipe to step a sentence back or forward. |
+| <img src="docs/screenshots/4-menu.png" width="420" alt="Menu"> | **Menu.** Double press while reading. The list wraps around, so one swipe up from the top lands on Exit. |
+| <img src="docs/screenshots/5-links.png" width="420" alt="Links"> | **Going deeper.** "Open a link" lists the linked terms near what you are reading. Pick one and you are a level deeper; Back returns you to where you were. A term you have already read is marked "Reread". |
+| <img src="docs/screenshots/6-meanings.png" width="420" alt="Several meanings"> | **Several meanings.** Say a name that could be many things, like "mercury", and you choose which one you meant. |
+| <img src="docs/screenshots/7-answer.png" width="420" alt="Answer to a question"> | **Questions.** Hold the ring and ask about what you are reading. The answer plays one level deeper (the "2>" in the corner), drawn from the article, with its own links. |
 
-When a topic opens, its main picture from Wikipedia (if it has a freely licensed one)
-is shown for three seconds as a cover; a press skips it. The phone-side page shows the
-same picture in colour, with a link to its author and licence.
+Pictures in the captures come from Wikimedia Commons: the daguerreotype of Ada Lovelace
+by Antoine Claudet (public domain) and the image of the black hole in Messier 87 by the
+Event Horizon Telescope collaboration (CC BY 4.0).
+
+For anything else you say, Claude picks the article that best matches it.
 
 ## Controls (temple touchpads or R1 ring)
 
@@ -215,3 +215,11 @@ Not tested, because they need your keys, network or hardware:
 
 Article text comes from Wikipedia under CC BY-SA 4.0. Every topic opens with a card
 naming the source, and the phone-side page links to the article.
+
+## Licence
+
+The code is released under the [MIT licence](LICENSE), copyright Irfan.
+
+What the app shows while it runs is not covered by that: article text comes from
+Wikipedia (CC BY-SA 4.0, rewritten by Claude) and pictures from Wikimedia Commons, each
+under its own licence.

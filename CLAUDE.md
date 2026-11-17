@@ -235,6 +235,12 @@ fixes the behaviour inside the Even app is unconfirmed.
 **0.1.2.** At the user's request each field in "Keys and access" shows whether a value is
 already saved, with its last four characters ("saved (...1a2b)"); the field itself stays empty
 so the secret is never rendered. Checked in a browser; uploaded and promoted to beta.
+The user chose the MIT licence (2026-11-17): `LICENSE` at the root (copyright Irfan), `license`
+in both `package.json` files, a section in the README and a line in the store description.
+The README now opens its tour with seven captures of the glasses display in `docs/screenshots/`
+(taken from the simulator's automation port, then put on black at twice the size).
+Even Hub's CLI can only set name, tagline, description and icon: the creator name ("Irfan",
+currently empty there) and any screenshots on the listing have to be set in Even's web portal.
 The user then confirmed, on the installed beta inside the Even app, that the page scrolls
 properly and the saved markers work ("all fixed"). So the installed build, the keys form and
 credentials stored on the phone are all confirmed on a real phone.

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "author": "Irfan",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
