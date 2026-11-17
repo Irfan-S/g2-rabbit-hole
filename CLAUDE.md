@@ -51,8 +51,8 @@ in `app/.env.local` to `http://<LAN-ip>:8787`.
   confirmed on the glasses.
 - `app/.env.local` has `VITE_API_BASE` set to this Mac's LAN address (192.168.0.15 on 2026-11-17)
   for the glasses. Update it if the address changes; the simulator works with it too.
-- Git repo created 2026-11-17, branch `main`, pushed to a private GitHub repository
-  (`origin`). `.env`, `.env.local`, `node_modules/`, `dist/` and `dev-qr.png` are ignored.
+- Git repo created 2026-11-17, branch `main`, pushed to GitHub (`origin`), public since the
+  same day. It has no licence file. `.env`, `.env.local`, `node_modules/`, `dist/` and `dev-qr.png` are ignored.
 
 ## Tested so far
 
