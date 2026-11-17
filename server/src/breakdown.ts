@@ -471,6 +471,10 @@ export async function pickArticle(
     },
     { signal },
   )
+  // Same one-line form as the other calls, so the pick's share of the cost can be read off the log.
+  console.log(
+    `pick ${JSON.stringify(query)} model=${MODEL} input_tokens=${message.usage.input_tokens} output_tokens=${message.usage.output_tokens} stop_reason=${message.stop_reason}`,
+  )
   if (message.stop_reason === 'refusal') return ''
   const text = message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
   return matchCandidate(text, candidates)

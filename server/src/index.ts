@@ -202,16 +202,49 @@ function underLimit(address: string): boolean {
   return allowed
 }
 
+// A free daily allowance for people with no access code and no keys of their own, paid for
+// by the owner. Off unless FREE_DAILY_BUDGET_USD is set. Amounts are whole millionths of a
+// dollar so that adding them up stays exact.
+const FREE_BUDGET = Math.round(Number(process.env.FREE_DAILY_BUDGET_USD ?? 0) * 1e6)
+const FREE_PER_ADDRESS = Number(process.env.FREE_PER_ADDRESS ?? 30)
+// ponytail: each free request is charged its worst case when it arrives, not its real token
+// use afterwards: $0.006 for a topic or question (an article at the size cap plus a hard
+// pick), $0.002 for speech (30 s). Measured averages are about half that. So the budget is a
+// ceiling that requests arriving together cannot overshoot, and real spend is lower. If the
+// allowance runs out too early, return usage from streamBlocks and settle up afterwards.
+const freeCharge = (path: string) => (path === '/api/stt' ? 2000 : 6000)
+// ponytail: in memory, like the own-key limit above, so a restart starts the day again.
+let freeToday = { day: '', spent: 0, warned: false, byAddress: new Map<string, number>() }
+
+/** Takes one free request out of today's allowance, or says which limit refused it. */
+function freeUse(address: string, charge: number): 'ok' | 'address' | 'total' {
+  const day = new Date().toISOString().slice(0, 10) // the day changes at midnight UTC
+  if (freeToday.day !== day) freeToday = { day, spent: 0, warned: false, byAddress: new Map() }
+  const used = freeToday.byAddress.get(address) ?? 0
+  if (used >= FREE_PER_ADDRESS) return 'address'
+  if (freeToday.spent + charge > FREE_BUDGET) {
+    if (!freeToday.warned) console.warn(`free allowance for ${day} is used up`)
+    freeToday.warned = true
+    return 'total'
+  }
+  freeToday.byAddress.set(address, used + 1)
+  freeToday.spent += charge
+  return 'ok'
+}
+
 /**
- * Everything under /api runs on someone's API keys. Two ways in:
+ * Everything under /api runs on someone's API keys. Three ways in:
  * - the owner's access code (X-App-Token = APP_TOKEN): the server's own keys are used;
  * - the caller's own keys (X-Anthropic-Key, and X-ElevenLabs-Key for speech): theirs are
- *   used for that request only. They are never stored or logged.
+ *   used for that request only. They are never stored or logged;
+ * - neither, while the free allowance lasts: the server's free keys are used (its own
+ *   keys, unless FREE_ANTHROPIC_API_KEY / FREE_ELEVENLABS_API_KEY name separate ones).
  * With no APP_TOKEN configured (local development) the server's keys are open to all.
  */
 app.use('/api/*', async (c, next) => {
   const code = c.req.header('x-app-token') ?? ''
   const ownAnthropic = (c.req.header('x-anthropic-key') ?? '').trim()
+  const address = (c.req.header('x-forwarded-for') ?? '').split(',')[0]!.trim() || 'direct'
   const serverKeys: Keys = {
     anthropic: process.env.ANTHROPIC_API_KEY ?? '',
     elevenlabs: process.env.ELEVENLABS_API_KEY ?? '',
@@ -220,12 +253,22 @@ app.use('/api/*', async (c, next) => {
   if (APP_TOKEN ? code !== '' && sameSecret(code, APP_TOKEN) : !ownAnthropic) {
     c.set('keys', serverKeys)
   } else if (ownAnthropic) {
-    const address = (c.req.header('x-forwarded-for') ?? '').split(',')[0]!.trim() || 'direct'
     if (!underLimit(address)) return c.json({ error: 'Too many requests. Try again in a few minutes.' }, 429)
     c.set('keys', {
       anthropic: ownAnthropic,
       elevenlabs: (c.req.header('x-elevenlabs-key') ?? '').trim(),
       owner: false,
+    })
+  } else if (!code && FREE_BUDGET > 0) {
+    const verdict = freeUse(address, freeCharge(c.req.path))
+    if (verdict !== 'ok') {
+      const whose = verdict === 'address' ? "Today's free reading is used up." : 'The free allowance is used up for everyone today.'
+      return c.json({ error: `${whose} Add your own API keys in the app settings, or come back tomorrow.` }, 429)
+    }
+    c.set('keys', {
+      anthropic: process.env.FREE_ANTHROPIC_API_KEY || serverKeys.anthropic,
+      elevenlabs: process.env.FREE_ELEVENLABS_API_KEY || serverKeys.elevenlabs,
+      owner: true,
     })
   } else {
     return c.json(
@@ -349,5 +392,9 @@ if (!process.env.VITEST) {
     console.log(`rabbit-hole server on http://localhost:${info.port}`)
     if (MOCK) console.warn('MOCK=1: serving canned content, no Wikipedia or Claude calls.')
     if (!APP_TOKEN) console.warn('APP_TOKEN is not set: anyone who finds this URL can spend your API keys.')
+    if (FREE_BUDGET > 0) {
+      const key = process.env.FREE_ANTHROPIC_API_KEY ? 'its own Anthropic key' : 'the main Anthropic key'
+      console.log(`free allowance: $${FREE_BUDGET / 1e6} a day in total, ${FREE_PER_ADDRESS} requests per address, on ${key}`)
+    }
   })
 }

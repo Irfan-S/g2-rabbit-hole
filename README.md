@@ -76,13 +76,19 @@ or type a topic on the phone-side page.
 
 ## Whose API keys are used
 
-The backend runs every request on someone's keys, and there are two ways in:
+The backend runs every request on someone's keys, and there are three ways in:
 
 - **An access code.** The person running the backend sets `APP_TOKEN` and keeps it to
   themselves. Entered in the app, it makes the backend use its own keys.
 - **Your own keys.** Anyone else enters an Anthropic key (and an ElevenLabs key, to speak
   topics) in the app. Those are used for that person's requests only; the backend does
   not store or log them, and limits each address to 60 requests per ten minutes.
+- **The free allowance.** With neither, a reader gets a few requests a day on the backend's
+  keys, if the person running it has set `FREE_DAILY_BUDGET_USD`: at most `FREE_PER_ADDRESS`
+  requests a day from one address, and nothing more for anyone once the day's budget is
+  counted as spent (the day turns over at midnight UTC). `FREE_ANTHROPIC_API_KEY` and
+  `FREE_ELEVENLABS_API_KEY` put free use on separate keys, so a spending limit can be set on
+  those where they are issued, as a second stop that does not depend on this code.
 
 Both are typed into "Keys and access" on the phone-side page and kept on the phone.
 The packaged app contains neither: `npm run pack` builds without the access code and
@@ -171,6 +177,8 @@ green version at the top of this page.
 | server/.env      | `MAX_ARTICLE_CHARS`  | 150000             | How much of the article Claude reads  |
 | server/.env      | `STT_PROVIDER`       | `elevenlabs`       | `elevenlabs`, `deepgram` or `openai`  |
 | server/.env      | `APP_TOKEN`          | empty              | Shared secret the app must send       |
+| server/.env      | `FREE_DAILY_BUDGET_USD` | empty (off)     | Most the free allowance may cost a day |
+| server/.env      | `FREE_PER_ADDRESS`   | 30                 | Free requests a day from one address  |
 | app/src/config.ts| `WPM_DEFAULT`        | 200                | Starting speed (100 to 450)           |
 | app/src/config.ts| `BIG_WORD_PX`        | 44                 | Size of the centre word (0 = firmware font) |
 | app/src/config.ts| `WORD_BOX`/`PARA_BOX`| 372 / 200 px wide  | Size of the two boxes                 |

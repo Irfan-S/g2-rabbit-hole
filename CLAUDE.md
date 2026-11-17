@@ -239,6 +239,49 @@ The user then confirmed, on the installed beta inside the Even app, that the pag
 properly and the saved markers work ("all fixed"). So the installed build, the keys form and
 credentials stored on the phone are all confirmed on a real phone.
 
+## What use costs (measured 2026-11-17)
+
+Run against the real services from a local server: 20 breakdowns (12 spoken topics, 8 link
+dives), 4 questions, 3 article picks. Prices used: Haiku 5.5 $0.10 in / $0.50 out per million
+tokens; ElevenLabs Scribe $0.20 per hour of audio (read off their API pricing page).
+- Breakdown: 24,000 tokens in and 1,150 out on average, $0.0030 (from $0.0012 for a short
+  article to $0.0051 for one at the 150,000-character cap, which is about 45,000 tokens, so
+  never near Haiku's dearer rate above 100,000). Four fifths of the cost is the article going in.
+- Question: $0.0025 (the whole article is sent again). Pick: $0.0001. A 5 s recording: $0.0003.
+- A breakdown is 350 to 650 words (average 473), so about 2.5 minutes of reading at 200 wpm:
+  roughly $0.08 for an hour of continuous reading.
+- A topic already in the server's 24-hour cache costs nothing (checked).
+`pickArticle` now logs its token use like the other calls.
+
+**Free daily allowance (built and deployed 2026-11-17; app wording not yet uploaded).**
+On the server since the same day: the user made a separate Anthropic key and a separate
+ElevenLabs key for free use, and its `.env` has both plus `FREE_DAILY_BUDGET_USD=1` and
+`FREE_PER_ADDRESS=30` (the file before the change is kept beside it as `.env.before-free`).
+The code went over by rsync, ahead of GitHub. Verified through https with no credentials: a
+topic that was not cached streamed, a spoken recording made with macOS `say` was transcribed,
+a wrong code got 401, the owner's code still works, and the startup log says free use is on
+its own Anthropic key. The limits on the keys themselves are the user's to set: they chose
+$30 a month on the Anthropic workspace and 7,000 credits a month on the ElevenLabs key (their
+ElevenLabs plan is the free one, 10,000 credits a month shared by both keys). How many credits
+a recording uses was not established, so how long 7,000 lasts is unknown. A request with no
+access code and no keys runs on the server's keys while the allowance lasts (`freeUse` in
+`index.ts`). Off unless `FREE_DAILY_BUDGET_USD` is set. Two limits, both per UTC day and held
+in memory: `FREE_PER_ADDRESS` requests from one address (default 30; a spoken topic is two),
+and the total budget, against which each request is counted at its worst-case price when it
+arrives ($0.006 a topic or question, $0.002 a recording), cached topics included. So the
+budget is a ceiling and real spend is about half. A wrong access code is still a 401.
+`FREE_ANTHROPIC_API_KEY` / `FREE_ELEVENLABS_API_KEY` put free use on separate keys (the user's
+idea), so limits can be set where the keys are issued: Anthropic spend limits are monthly and
+per workspace, not per key, and cannot be set on the Default Workspace, so the free key needs
+its own workspace; an ElevenLabs key can be restricted to speech-to-text and given a monthly
+credit limit. Why the cap matters: the average person costs a few cents a day, but the
+server's address is public in `app.json`, so a script is the real risk.
+Checked: unit tests, and a local server on the real services (two free topics, then 429 for
+everyone, wrong code 401, owner unaffected). Not checked: free speech-to-text live, and the
+separate keys (none exist yet). In the app the home screen no longer tells a reader with
+nothing set to add keys, and the phone page says they are on the free allowance; the store
+description says a few topics a day are free. Checked by type check and tests only.
+
 ## Motion while walking (thought through, nothing built)
 
 True stabilisation is not possible from a plugin: the display is fixed to the head, a correction

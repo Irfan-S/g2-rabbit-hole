@@ -98,8 +98,6 @@ async function saveCredentials(next: Credentials) {
   credentials = next
   setCredentials(next)
   await bridge.setLocalStorage('credentials', JSON.stringify(next)).catch(() => undefined)
-  // The home screen says whether keys are still needed, so redraw it.
-  if (state === 'home') await showHome()
   refresh()
 }
 
@@ -165,9 +163,9 @@ function transition(step: () => Promise<void> | void) {
  */
 async function showHome() {
   const width = innerWidth(COVER_TEXT)
-  // Until an access code or key has been entered, nothing can load: say where to add one.
-  const lines = accessKind() === 'none' ? ['Rabbit Hole', 'First open this app on your phone', 'and add your API keys'] : HOME_LINES
-  const text = lines.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
+  // The same for everyone: a reader with no code or keys is on the server's free allowance,
+  // and if there is none, the first topic fails with a message saying where to add keys.
+  const text = HOME_LINES.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
   const shown = await glass.cover(text, homeArt).catch(err => {
     console.warn('home picture failed:', err)
     return false

@@ -191,7 +191,7 @@ export function renderUi(model: UiModel) {
       ? 'Using an access code.'
       : model.access.kind === 'keys'
         ? `Using your own keys. ${model.access.speech ? 'Speaking a topic works.' : 'No ElevenLabs key, so topics must be typed here.'}`
-        : 'Nothing set yet: topics will not load until you add an access code or an Anthropic key.'
+        : 'Nothing set: you are reading on the free daily allowance. Add your own keys to read as much as you like.'
   set('access', escapeHtml(access))
   // Each field says whether something is already saved for it. Only the last few
   // characters are shown, enough to tell which key it is.

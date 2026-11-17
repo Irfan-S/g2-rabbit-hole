@@ -8,6 +8,6 @@ Say a topic. Rabbit Hole finds the article, rewrites it as a short, plain-langua
 - Reopen topics you have read before from your history
 - Change the reading speed from the menu
 
-You need your own API keys to use it: an Anthropic key for the breakdowns, and an ElevenLabs key if you want to speak topics. Add them under "Keys and access" on the phone-side page. They are kept on your phone and sent only with your own requests.
+You can read a few topics a day for free. To read more, use your own API keys: an Anthropic key for the breakdowns, and an ElevenLabs key if you want to speak topics. Add them under "Keys and access" on the phone-side page. They are kept on your phone and sent only with your own requests.
 
 Text comes from Wikipedia (CC BY-SA 4.0) and is rewritten by Claude, so the wording differs from the article.
