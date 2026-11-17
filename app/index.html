@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+    <title>Rabbit Hole</title>
+    <style>
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: #232323;
+        color: #E5E5E5;
+        font: 15px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        /* Stop WebView zoom, iOS text resizing and rubber-band scrolling. */
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior: none;
+      }
+      main { max-width: 680px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+      header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+      h1 { font-size: 18px; font-weight: 600; margin: 0; }
+      h2 { font-size: 16px; font-weight: 600; margin: 4px 0 10px; }
+      .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #2E2E2E; border: 1px solid #3E3E3E; color: #B5B5B5; }
+      .muted { font-size: 12px; color: #919191; }
+      .error { color: #FF8A80; font-size: 13px; margin: 0 0 12px; }
+      form { display: flex; gap: 8px; margin-bottom: 14px; }
+      input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #3E3E3E; background: #2E2E2E; color: inherit; font: inherit; }
+      button { padding: 10px 14px; border-radius: 10px; border: 1px solid #3E3E3E; background: #2E2E2E; color: inherit; font: inherit; }
+      button:disabled { opacity: 0.4; }
+      .card { background: #2E2E2E; border: 1px solid #3E3E3E; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+      .card p { margin: 0 0 12px; }
+      .term { color: #8FE3A0; text-decoration: underline; }
+      .links { display: flex; flex-wrap: wrap; gap: 6px; }
+      .link { padding: 5px 10px; font-size: 13px; border-radius: 999px; }
+      .link.seen { opacity: 0.55; } /* a linked topic that has already been read */
+      .card .links { margin-top: 8px; }
+      .photo { display: block; margin: 0 0 12px; text-decoration: none; }
+      .photo[hidden] { display: none; }
+      .photo img { display: block; max-width: 100%; max-height: 240px; border-radius: 8px; background: #fff; margin-bottom: 4px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+      footer a { color: #8FE3A0; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

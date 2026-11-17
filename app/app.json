@@ -1,0 +1,27 @@
+{
+  "package_id": "com.example.rabbithole",
+  "edition": "202601",
+  "name": "Rabbit Hole",
+  "version": "0.1.0",
+  "min_app_version": "2.2.10",
+  "min_sdk_version": "0.0.16",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "g2-microphone",
+      "desc": "Hear the topic you want to learn about."
+    },
+    {
+      "name": "network",
+      "desc": "Fetch topic breakdowns from your Rabbit Hole backend.",
+      "whitelist": [
+        "https://YOUR-BACKEND.example.com",
+        "https://upload.wikimedia.org",
+        "https://thumb.wikimedia.org"
+      ]
+    }
+  ],
+  "supported_languages": [
+    "en"
+  ]
+}
