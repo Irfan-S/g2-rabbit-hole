@@ -49,8 +49,30 @@ export const BIG_WORD_PX = 44
  *         classic speed-reader placement, which makes long words hang off to the right.
  */
 export const CENTRE_WORDS = true
-/** The word picture, centred on the display. The firmware allows at most 288 x 144. */
-export const WORD_IMAGE = { x: (CANVAS_W - 288) / 2, y: (CANVAS_H - 64) / 2, w: 288, h: 64 }
+/**
+ * true  = letters are pure black and white. Measured on a paragraph of real words, a word
+ *         then takes about 270 bytes to send instead of about 620 (compressed estimate).
+ * false = smooth grey edges, which look a little softer and cost more than twice the data.
+ */
+export const CRISP_WORDS = true
+
+// How far a word at BIG_WORD_PX reaches above and below its middle line: accented capitals
+// above, brackets and descenders below (measured at 44 px in three common system fonts).
+const WORD_ABOVE = Math.ceil(BIG_WORD_PX * 0.64)
+const WORD_BELOW = Math.ceil(BIG_WORD_PX * 0.53)
+/**
+ * The word picture. It is only as tall as the tallest word needs (53 px at 44 px text;
+ * it was 64), since every word sends and draws the whole frame. `baseline` is where the
+ * word's middle line sits inside it, and `y` puts the letters themselves, not the frame,
+ * on the centre of the display. The firmware allows at most 288 x 144, and at least 20.
+ */
+export const WORD_IMAGE = {
+  x: (CANVAS_W - 288) / 2,
+  y: Math.round(CANVAS_H / 2 - WORD_ABOVE - BIG_WORD_PX * 0.05),
+  w: 288,
+  h: Math.max(20, WORD_ABOVE + WORD_BELOW),
+  baseline: WORD_ABOVE,
+}
 
 /**
  * Cover card: a topic's main picture, shown once when the topic opens, with its title

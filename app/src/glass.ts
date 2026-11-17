@@ -31,6 +31,7 @@ import {
   CANVAS_W,
   COVER_IMAGE,
   COVER_TEXT,
+  CRISP_WORDS,
   FIGURE_IMAGE,
   PARA_BOX,
   SIDE_FIGURES,
@@ -133,7 +134,7 @@ export async function photoPng(
  */
 export async function wordPng(display: string): Promise<Uint8Array> {
   canvas ??= Object.assign(document.createElement('canvas'), { width: WORD_IMAGE.w, height: WORD_IMAGE.h })
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d', { willReadFrequently: CRISP_WORDS })!
   const { w, h } = WORD_IMAGE
   const room = w - 4
   const font = (px: number) => `600 ${px}px system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif`
@@ -155,7 +156,7 @@ export async function wordPng(display: string): Promise<Uint8Array> {
     }
     lines = [head(cut), words.slice(cut).join(' ')]
   }
-  const most = lines.length > 1 ? Math.min(BIG_WORD_PX, Math.floor(h / 2) - 4) : BIG_WORD_PX
+  const most = lines.length > 1 ? Math.min(BIG_WORD_PX, Math.floor(h / 2) - 5) : BIG_WORD_PX
   const widest = Math.max(0, ...lines.map(line => widthAt(line, most)))
   const px = widest > room ? Math.floor((most * room) / widest) : most
   ctx.font = font(px)
@@ -170,8 +171,19 @@ export async function wordPng(display: string): Promise<Uint8Array> {
       // The picture is centred on the display, so its middle is where the pivot letter goes.
       x = Math.max(2, Math.min(w / 2 - pivotCentre, w - 2 - width))
     }
-    ctx.fillText(line, x, h / 2 + (i - (lines.length - 1) / 2) * (px + 4))
+    // One line sits on the frame's baseline; two share the frame evenly.
+    const y = lines.length === 1 ? WORD_IMAGE.baseline : h / 2 + (i - 0.5) * (px + 4)
+    ctx.fillText(line, x, y)
   })
+
+  if (CRISP_WORDS && lines.length) {
+    // Snap every pixel to black or white. The soft grey edges of smoothed text compress
+    // badly, and this frame is sent for every single word.
+    const frame = ctx.getImageData(0, 0, w, h)
+    const data = frame.data
+    for (let i = 0; i < data.length; i += 4) data[i] = data[i + 1] = data[i + 2] = data[i]! > 110 ? 255 : 0
+    ctx.putImageData(frame, 0, 0)
+  }
 
   return pngOf(canvas)
 }

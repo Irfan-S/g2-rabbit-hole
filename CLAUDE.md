@@ -110,6 +110,18 @@ in `app/.env.local` to `http://<LAN-ip>:8787`.
   holes in sentences); Claude says them in words.
 - `stop_reason` is logged; a refusal is reported as an error, a `max_tokens` cut-off warns.
 
+## Bluetooth and battery (looked at 2026-11-17)
+
+The word picture is about 96% of all image data sent: one frame per word, against one small
+photo per section and one cover per topic. Estimated per word (frame packed to 4-bit grey and
+compressed with deflate as a stand-in for the Even app's LZ4; not a Bluetooth measurement):
+about 620 bytes with smoothed letters, about 270 with pure black-and-white letters
+(`CRISP_WORDS`, now on), about 17 as firmware text. The frame is also only as tall as the
+letters need (288 x 53 at 44 px, was 288 x 64), which saves drawing work, not bytes.
+Not built: pairing short words with the next one (about 27% fewer frames on a sample), and a
+menu toggle to fall back to the firmware font. The user confirmed on the glasses that the
+crisp letters look good. Two-line headings are 21 px in the shorter frame (were 28).
+
 ## NOT tested yet
 
 1. Transcript accuracy on real glasses beyond one try. The glasses mic works: the user said
