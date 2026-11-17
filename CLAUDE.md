@@ -310,7 +310,7 @@ Even Hub was then brought in step, with the user's go-ahead: 0.1.4 is on the bet
 they are on the free allowance), and the listing now opens "You can read a few topics a day
 for free". Not yet seen on the glasses or phone.
 
-## Resuming the previous session (built 2026-11-17; not committed, not on Even Hub)
+## Resuming the previous session (built 2026-11-17; on Even Hub as 0.1.5)
 
 The user asked for an option at the start to resume the previous session exactly where it
 was stopped. `app/src/session.ts` + `persist` / `resumeSession` in `main.ts`: the trail
@@ -328,7 +328,9 @@ values survive closing the Even app (the same open question as for reading histo
 close the saved word is when the app is closed while playing (up to 3 s behind unless an
 exit event arrives), and whether a hold on the opening screen is delivered by the ring
 there. A resumed topic is whatever had streamed when it was saved: one cut short by leaving
-ends where it stopped. Releasing it would be 0.1.5.
+ends where it stopped. With the user's go-ahead it was uploaded and promoted to beta as
+0.1.5 the same day; the listing's description (which gained a line about resuming in
+`store-description.txt`) was not sent to Even Hub.
 
 ## Motion while walking (thought through, nothing built)
 
