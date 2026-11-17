@@ -17,13 +17,16 @@ import { getTextWidth, measureTextWrap, pxTruncate } from '@evenrealities/pretex
 import { streamTopic, transcribe, type TopicParams } from './api'
 import { concatBytes, toBytes } from './audio'
 import {
+  CANVAS_W,
   COVER_MS,
   COVER_TEXT,
   MAX_ASK_MS,
   MAX_LISTEN_MS,
   MAX_MENU_LINKS,
+  MENU_ROWS,
   PARA_BOX,
   STATUS_BOX,
+  TEXT_MENU,
   WORD_ANCHOR,
   WORD_BOX,
   WPM_DEFAULT,
@@ -34,6 +37,7 @@ import {
   lineCapacity,
 } from './config'
 import { Glass } from './glass'
+import homeArt from './home.png'
 import { parseHistory, recordVisit } from './history'
 import { Reader } from './reader'
 import { placeLine } from './text'
@@ -63,6 +67,8 @@ interface Entry {
 
 const HOME_TEXT =
   'Rabbit Hole\n\nPress, say a topic, then press again.\nSwipe for topics you have read.\n\nDouble press to exit.'
+/** The same, as three lines to sit under the home picture. */
+const HOME_LINES = ['Rabbit Hole', 'Press, say a topic, press again', 'Swipe: topics read.  Double press: exit']
 
 const bridge = await waitForEvenAppBridge()
 const glass = new Glass(bridge)
@@ -123,6 +129,20 @@ function transition(step: () => Promise<void> | void) {
 
 // ── screens ──
 
+/**
+ * The opening screen: the rabbit picture (art/home.py) with the title and controls under
+ * it. Falls back to plain text if the glasses will not show the picture.
+ */
+async function showHome() {
+  const width = innerWidth(COVER_TEXT)
+  const text = HOME_LINES.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
+  const shown = await glass.cover(text, homeArt).catch(err => {
+    console.warn('home picture failed:', err)
+    return false
+  })
+  if (!shown) await glass.message(HOME_TEXT)
+}
+
 async function goHome() {
   for (const entry of trail) entry.abort.abort()
   choices = null
@@ -130,7 +150,7 @@ async function goHome() {
   active = null
   reader.reset()
   state = 'home'
-  await glass.message(HOME_TEXT)
+  await showHome()
   refresh()
 }
 
@@ -312,9 +332,7 @@ async function chooseTopic(entry: Entry, query: string, options: Candidate[]) {
     })),
     { label: 'Cancel', run: goHome },
   ]
-  state = 'menu'
-  await glass.menu(menuActions.map(action => action.label))
-  refresh()
+  await showMenu()
 }
 
 async function dive(title: string) {
@@ -408,6 +426,43 @@ async function cancelListening() {
 
 // ── menu ──
 
+/** The highlighted item, and the first item on screen, of a text menu. */
+let menuIndex = 0
+let menuTop = 0
+
+/** Shows `menuActions` as a menu on the glasses, with the first item highlighted. */
+async function showMenu() {
+  menuIndex = 0
+  menuTop = 0
+  state = 'menu'
+  if (TEXT_MENU) await glass.message(menuText())
+  else await glass.menu(menuActions.map(action => action.label))
+  refresh()
+}
+
+/** The visible part of the menu as text: a ">" marks the highlighted item. */
+function menuText(): string {
+  // Scroll the window just far enough to keep the highlight on screen.
+  if (menuIndex < menuTop) menuTop = menuIndex
+  if (menuIndex >= menuTop + MENU_ROWS) menuTop = menuIndex - MENU_ROWS + 1
+  const marker = '> '
+  const spaceWidth = Math.max(1, getTextWidth(' '.repeat(10)) / 10)
+  const indent = ' '.repeat(Math.max(1, Math.round(getTextWidth(marker) / spaceWidth)))
+  const room = CANVAS_W - 16 - getTextWidth(marker) - 8
+  return menuActions
+    .slice(menuTop, menuTop + MENU_ROWS)
+    .map((action, row) => (menuTop + row === menuIndex ? marker : indent) + pxTruncate(action.label, room))
+    .join('\n')
+}
+
+/** Moves the highlight one item up or down. Menus are circular: past either end is the other end. */
+async function moveMenu(step: -1 | 1) {
+  const count = menuActions.length
+  if (!count) return
+  menuIndex = (menuIndex + step + count) % count
+  await glass.message(menuText())
+}
+
 async function openMenu() {
   reader.pause()
   const links = reader.links(MAX_MENU_LINKS)
@@ -417,11 +472,8 @@ async function openMenu() {
     { label: 'Resume reading', run: () => enterReader(true) },
     // Same as holding the ring while reading, for when a long press does not get through.
     { label: 'Ask a question (speak)', run: () => startListening('question') },
-    // "Reread" marks a link whose topic has been opened before.
-    ...links.map(link => ({
-      label: `${history.includes(link.title) ? 'Reread' : 'Open'}: ${link.title}`,
-      run: () => dive(link.title),
-    })),
+    // The linked words get a list of their own, so this menu stays short.
+    ...(links.length ? [{ label: `Open a link (${links.length})`, run: openLinks }] : []),
     { label: `Slower (${slower} wpm)`, run: () => changeSpeed(slower) },
     { label: `Faster (${faster} wpm)`, run: () => changeSpeed(faster) },
   ]
@@ -430,9 +482,20 @@ async function openMenu() {
   menuActions.push({ label: 'Topics you have read', run: openHistory })
   menuActions.push({ label: 'New topic (speak)', run: () => startListening() })
   menuActions.push({ label: 'Exit', run: () => void bridge.shutDownPageContainer(1) })
-  state = 'menu'
-  await glass.menu(menuActions.map(action => action.label))
-  refresh()
+  await showMenu()
+}
+
+/** Lists the linked words near what is being read; choosing one opens it a level deeper. */
+async function openLinks() {
+  menuActions = [
+    { label: 'Back to menu', run: openMenu },
+    // "Reread" marks a link whose topic has been opened before.
+    ...reader.links(MAX_MENU_LINKS).map(link => ({
+      label: `${history.includes(link.title) ? 'Reread' : 'Open'}: ${link.title}`,
+      run: () => dive(link.title),
+    })),
+  ]
+  await showMenu()
 }
 
 /** Lists topics already read, newest first. Choosing one opens it as a fresh trail. */
@@ -443,9 +506,7 @@ async function openHistory() {
     // The firmware list holds 20 items.
     ...history.slice(0, 19).map(title => ({ label: title, run: () => startTopic({ title }, title, true) })),
   ]
-  state = 'menu'
-  await glass.menu(menuActions.map(action => action.label))
-  refresh()
+  await showMenu()
 }
 
 async function changeSpeed(wpm: number) {
@@ -501,7 +562,10 @@ async function handle(gesture: Gesture, listIndex?: number) {
       if (gesture === 'hold') return startListening('question')
       return
     case 'menu':
-      if (gesture === 'click' && listIndex !== undefined) return menuActions[listIndex]?.run()
+      // A firmware list reports which item was pressed; a text menu tracks it itself.
+      if (gesture === 'click') return menuActions[listIndex ?? menuIndex]?.run()
+      if (TEXT_MENU && gesture === 'up') return moveMenu(-1)
+      if (TEXT_MENU && gesture === 'down') return moveMenu(1)
       // The list of read topics can be opened from home, where there is nothing to resume.
       if (gesture === 'double') return active ? enterReader(false) : goHome()
       return
@@ -548,7 +612,7 @@ const unsubscribe = bridge.onEvenHubEvent(event => {
     const index = event.listEvent?.currentSelectItemIndex ?? 0
     return void transition(() => handle('click', index))
   }
-  if (list !== null) return // list scrolling: the firmware moves the highlight itself
+  if (list !== null) return // a firmware list moves its own highlight and reports nothing
 
   if (sys === OsEventTypeList.CLICK_EVENT || text === OsEventTypeList.CLICK_EVENT) {
     return void transition(() => handle('click'))
@@ -629,7 +693,7 @@ mountUi({
   back: () => void transition(goBack),
 })
 
-await glass.message(HOME_TEXT)
+await showHome()
 refresh()
 
 // Development shortcut: open the page with ?topic=Something to skip the spoken step.

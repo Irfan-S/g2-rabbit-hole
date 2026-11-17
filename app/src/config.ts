@@ -112,5 +112,18 @@ export const MAX_LISTEN_MS = 8000
 /** A spoken question may run longer than a topic name. */
 export const MAX_ASK_MS = 15000
 
+/**
+ * true  = the app draws each menu as text and moves the ">" marker itself, so a menu can
+ *         wrap around (swipe up on the first item lands on the last).
+ * false = the firmware's own list. The glasses then move the highlight privately and only
+ *         report presses (seen on real glasses), so wrapping around is impossible.
+ */
+export const TEXT_MENU = true
+/**
+ * Items shown at once in a text menu. A full screen holds nine lines, but the text must
+ * fit with room to spare: if it could scroll, the firmware would take the swipes itself.
+ */
+export const MENU_ROWS = 8
+
 /** How many links the menu lists (the firmware list holds 20 items at most). */
 export const MAX_MENU_LINKS = 12

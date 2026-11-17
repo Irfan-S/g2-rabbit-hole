@@ -1,5 +1,7 @@
 # Rabbit Hole for Even G2
 
+![Rabbit Hole: a rabbit beside its burrow, under a tree, as drawn on the glasses](app/art/logo.png)
+
 Speak a topic. The backend fetches the Wikipedia article, Claude rewrites it as a
 teaching breakdown, and the glasses play it one word at a time. Linked terms show
 in [brackets]; open one and you are a level deeper.
@@ -38,9 +40,10 @@ reading, then let go. The answer plays one level deeper, like a link, and Back r
 to where you were. The menu has the same thing as "Ask a question (speak)". On the
 phone-side page, type `?` followed by the question.
 
-The menu lists the links in the current paragraph first, then nearby ones, then
-Slower, Faster, Back to the parent topic, Topics you have read, New topic and Exit.
-A link you have already opened is listed as "Reread:" instead of "Open:".
+The menu has Resume, Ask a question, Open a link, Slower, Faster, Back to the parent
+topic, Topics you have read, New topic and Exit. It wraps around: swipe up on the first
+item to land on the last. "Open a link" lists the linked words, those in the current
+paragraph first; one you have already opened is listed as "Reread:" instead of "Open:".
 
 Every topic you open is remembered on the phone (the last 50). The list is on the
 glasses (swipe on the home screen, or from the menu) and on the phone-side page.
@@ -71,8 +74,40 @@ so the phone can reach the backend.
 Skip the spoken step while developing: open `http://localhost:5173/?topic=Entropy`,
 or type a topic on the phone-side page.
 
-To ship: deploy `server/` somewhere with https, put that URL in `app/.env.local` and
-in the `network` whitelist in `app/app.json`, change `package_id`, then `npm run pack`.
+## Installing it in the Even app
+
+The QR code only loads the app from your computer while the dev server runs. To keep it
+on your phone, it has to go through Even Hub:
+
+1. **The backend must be reachable from your phone.** The app does not hold the API
+   keys; `server/` does. Either leave it running on a computer at home (the app then
+   works only on that Wi-Fi), or deploy `server/` somewhere with https and set
+   `APP_TOKEN`. Put its address in `VITE_API_BASE` in `app/.env.local` (it is built
+   into the package) and in the `network` whitelist in `app/app.json`.
+2. **Give the app its own ID.** Change `package_id` in `app/app.json` from
+   `com.example.rabbithole` to one in your namespace (`npx evenhub self-check` shows it).
+3. **Sign in, pack and upload** (from `app/`):
+
+   ```bash
+   npx evenhub login                      # once, in a terminal
+   npm run pack                           # builds and writes out.ehpk
+   npx evenhub create out.ehpk --name "Rabbit Hole" --tagline "Learn anything, one word at a time"
+   npx evenhub promote 0.1.0 --to beta
+   npx evenhub testers add you@example.com
+   ```
+
+   Accept the invitation email, and the beta build appears in your Even app. Later
+   versions: bump `version` in `app.json`, `npm run pack`, `npx evenhub upload out.ehpk`,
+   then `promote` the new version.
+
+A public listing goes through review in Even's developer portal, not the CLI. Before
+that, note that every reader would be using the backend's API keys: the shared
+`APP_TOKEN` is inside the package and can be read out of it, so it is not enough on
+its own for a public app.
+
+The opening picture is drawn by `app/art/home.py`: `python3 art/home.py` rewrites
+`app/src/home.png`, which the app sends to the glasses, and `app/art/logo.png`, the
+green version at the top of this page.
 
 ## Settings
 

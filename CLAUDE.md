@@ -110,6 +110,50 @@ in `app/.env.local` to `http://<LAN-ip>:8787`.
   holes in sentences); Claude says them in words.
 - `stop_reason` is logged; a refusal is reported as an error, a `max_tokens` cut-off warns.
 
+## Opening screen and how the display shows grey (2026-11-17)
+
+The home screen is the `cover` layout with `app/src/home.png` (a rabbit beside a burrow and a
+tree, drawn by `app/art/home.py`) and three lines under it; plain text if the picture fails.
+Checked in the simulator only. While making it: the simulator, which says it matches the
+glasses' grey conversion, shows level 4 of 15 at about 67% brightness and level 1 at about 44%
+(roughly level^0.3). Soft shading therefore disappears, so the art uses three levels (15, 4, 1)
+and black gaps. The same curve is why cover and section photos look washed out; darkening
+them before sending (a gamma around 2 to 3) is an untried idea.
+
+## Menus are drawn by the app, not the firmware list (2026-11-17)
+
+The user wanted a swipe up on the first menu item to land on the last (a quick way to Exit).
+Logging what real glasses send while a firmware list is open showed only presses, each with
+`currentSelectItemIndex` (absent for item 0): the firmware moves the highlight privately and
+sends no scroll events, at the ends or anywhere else. Wrap-around is therefore impossible with
+a list container. So menus are now text on the `message` layout: `menuText` in `main.ts` draws
+up to `MENU_ROWS` items with a ">" marker, `moveMenu` moves it on the text container's swipe
+events and wraps. `TEXT_MENU = false` in `config.ts` brings the firmware list back.
+The linked words moved out of the main menu into their own list ("Open a link (12)"), at the
+user's request, so the main menu is about eight items.
+Confirmed by the user on the glasses the same day: swipes move the marker and it wraps.
+To see what real glasses send in some state, the trick used here was a temporary route that
+logged events posted by the app; it was removed afterwards.
+
+## Getting it into the Even app (not done; needs the user)
+
+README has the steps. State on 2026-11-17: `npm run pack` works (79 KB `out.ehpk`); the CLI is
+not signed in (`evenhub login` needs the user's password in a terminal); `package_id` is still
+`com.example.rabbithole`; the backend runs only on this Mac (`VITE_API_BASE` is its LAN address),
+so an installed build would work only at home with the Mac's server running. The user had
+assumed there was no backend: it exists because the API keys must not sit in the app. Open
+decision: host the backend online, or keep it at home. A public release additionally needs a
+plan for who pays for API use, a 24 x 24 icon in Even's format, a licence and Even's review.
+
+## Motion while walking (thought through, nothing built)
+
+True stabilisation is not possible from a plugin: the display is fixed to the head, a correction
+would have to land within about 10 to 20 ms, and a plugin gets IMU reports at most every 100 ms
+(`bridge.imuControl`, `ImuReportPace.P100` to `P1000`) and takes 100 ms or more to change what is
+shown. What is possible: use the IMU (or `isWearing`) to notice walking and slow down, lengthen
+pauses, pause on jolts, or hide the side columns. One centred word is already the most
+motion-tolerant layout, since the eye never has to move.
+
 ## Bluetooth and battery (looked at 2026-11-17)
 
 The word picture is about 96% of all image data sent: one frame per word, against one small
