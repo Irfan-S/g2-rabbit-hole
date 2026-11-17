@@ -1,0 +1,6 @@
+# Keep secrets and local clutter out of the image.
+.env
+.env.*
+!.env.example
+node_modules
+test

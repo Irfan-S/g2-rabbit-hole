@@ -145,6 +145,27 @@ assumed there was no backend: it exists because the API keys must not sit in the
 decision: host the backend online, or keep it at home. A public release additionally needs a
 plan for who pays for API use, a 24 x 24 icon in Even's format, a licence and Even's review.
 
+## Hosting the backend (prepared 2026-11-17, nothing deployed)
+
+`server/Dockerfile` (+ `.dockerignore`) runs the backend with `node --import tsx src/index.ts`
+on Node 22; keys come from the host's environment, never the image. The Docker daemon was not
+running on this Mac, so the image itself has NOT been built. What was verified instead: a
+clean copy holding only the files the image gets, `npm ci`, and that exact start command
+served real topics. Measured there (Node 20, this Mac): 87 MB idle, 130 to 170 MB after single
+topics, 225 MB peak with four topics at once; 0.65 to 1.06 s of CPU per topic (6 to 8 s
+wall), 0.3 s per question. So: 512 MB and a shared CPU are enough for one person.
+Cloudflare Workers free plan allows 10 ms of CPU per request (checked on their limits page
+the same day), far below what a topic uses, so it would need the paid plan or a redesign
+that moves Wikipedia parsing and stream parsing into the app.
+The user then asked about Vultr: their pricing page listed 1 vCPU / 1 GB at $5 a month
+(0.5 GB at $3.50, and $2.50 IPv6-only), and asked for setup files. `server/compose.yaml` runs
+the backend behind Caddy (`server/Caddyfile`) for automatic https on `DOMAIN`; README has the
+steps. NOT run anywhere: no Docker daemon here, so compose and Caddy are unverified beyond the
+YAML parsing. In production (`NODE_ENV=production`, set by the Dockerfile) the server now exits
+at start if `APP_TOKEN` is empty. The token path was checked live on a local production-mode
+run: 401 without or with a wrong `X-App-Token`, normal service with the right one, `/health`
+open, CORS preflight for the header passes.
+
 ## Motion while walking (thought through, nothing built)
 
 True stabilisation is not possible from a plugin: the display is fixed to the head, a correction
@@ -175,7 +196,6 @@ crisp letters look good. Two-line headings are 21 px in the shorter frame (were 
    `stt ... heard=... topic=...` for tracing.
 2. Speeds above 200 wpm on real glasses (each word is a picture over Bluetooth; `MIN_WORD_MS`
    is still the 120 ms taken from Even's ASR template), and long sessions.
-3. `APP_TOKEN` path against the live backend (unit-level only).
 7. **Section pictures on real glasses** (added 2026-11-17). `extractArticle` keeps up to 12
    captioned figures hosted on Wikimedia Commons (files uploaded to English Wikipedia itself are
    mostly fair use and are skipped). Claude may tag a section with `@figure N`; with thinking off

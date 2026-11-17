@@ -278,6 +278,15 @@ app.post('/api/ask', async c => {
 
 // Start listening unless a test imported this file.
 if (!process.env.VITEST) {
+  // In a container this process is PID 1, which ignores SIGTERM unless told otherwise,
+  // and hosts that scale to zero would then wait out their full grace period to stop it.
+  process.on('SIGTERM', () => process.exit(0))
+  // A deployed server without a token would let anyone who finds its address spend the
+  // API keys. Locally that is only a warning; in production it is a refusal to start.
+  if (process.env.NODE_ENV === 'production' && !APP_TOKEN && !MOCK) {
+    console.error('APP_TOKEN is not set. Refusing to start in production without it: set a long random value.')
+    process.exit(1)
+  }
   serve({ fetch: app.fetch, port: PORT, hostname: '0.0.0.0' }, info => {
     console.log(`rabbit-hole server on http://localhost:${info.port}`)
     if (MOCK) console.warn('MOCK=1: serving canned content, no Wikipedia or Claude calls.')

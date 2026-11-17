@@ -1,0 +1,8 @@
+# https for the backend. Caddy obtains and renews the certificate for DOMAIN itself.
+{$DOMAIN} {
+	reverse_proxy backend:8787 {
+		# Topics are streamed paragraph by paragraph: pass each one on at once
+		# instead of collecting the response first.
+		flush_interval -1
+	}
+}

@@ -100,6 +100,44 @@ on your phone, it has to go through Even Hub:
    versions: bump `version` in `app.json`, `npm run pack`, `npx evenhub upload out.ehpk`,
    then `promote` the new version.
 
+### Running the backend on a rented server
+
+`server/` has everything for a small Linux server: a `Dockerfile` for the backend and a
+`compose.yaml` that puts [Caddy](https://caddyserver.com) in front of it for https
+(Caddy gets and renews the certificate by itself). Sized from measurement: the backend
+idles at about 90 MB, peaks around 225 MB with four topics being written at once, and
+uses roughly one second of processor time per topic. A server with 1 GB of memory and
+one shared core is enough for personal use.
+
+1. **Create the server.** Any provider works. On Vultr that is Cloud Compute, Regular
+   Performance, 1 vCPU / 1 GB, with Ubuntu; their Docker marketplace image saves a step.
+   Not the IPv6-only plan. Open ports 80 and 443 if a firewall is on.
+2. **Point a hostname at it.** Add an A record for, say, `rabbit.example.com` with the
+   server's IP address. Caddy cannot get a certificate until this resolves.
+3. **Install and start** (on the server; skip the first line on a Docker image):
+
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   git clone https://github.com/Irfan-S/g2-rabbit-hole && cd g2-rabbit-hole/server
+   cp .env.example .env && nano .env      # keys, APP_TOKEN, DOMAIN (uncomment it)
+   docker compose up -d --build
+   ```
+
+   In `.env`: `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, your contact address in
+   `WIKI_USER_AGENT`, `APP_TOKEN` (make one with `openssl rand -hex 32`) and `DOMAIN`.
+   The backend refuses to start on a server without `APP_TOKEN`.
+4. **Check it:** `curl https://rabbit.example.com/health` should print `{"ok":true}`.
+5. **Point the app at it.** In `app/.env.local` set `VITE_API_BASE=https://rabbit.example.com`
+   and `VITE_API_TOKEN` to the same value as `APP_TOKEN`; add the address to the
+   `network` whitelist in `app/app.json`; then pack and upload as above.
+
+To update later: `git pull && docker compose up -d --build`. Logs, including what each
+topic cost in tokens: `docker compose logs -f backend`.
+
+Without compose, the backend alone is `docker build -t rabbit-hole-server .` and
+`docker run -p 8787:8787 --env-file .env rabbit-hole-server`; it listens on `PORT` if
+the host sets one, and holds no keys in the image.
+
 A public listing goes through review in Even's developer portal, not the CLI. Before
 that, note that every reader would be using the backend's API keys: the shared
 `APP_TOKEN` is inside the package and can be read out of it, so it is not enough on

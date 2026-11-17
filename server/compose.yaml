@@ -1,0 +1,38 @@
+# Runs the backend on a server you rent, with https in front of it.
+#
+#   cp .env.example .env     then fill in the keys, APP_TOKEN and DOMAIN
+#   docker compose up -d --build
+#
+# Caddy gets a free certificate for DOMAIN by itself, so DOMAIN must already point at
+# this server and ports 80 and 443 must be open. Only Caddy is reachable from outside.
+
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8787"
+    expose:
+      - "8787"
+    # The backend peaks around 225 MB; this keeps a runaway from taking the whole machine.
+    mem_limit: 512m
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env to the hostname that points at this server}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates live here: keep it between restarts
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
