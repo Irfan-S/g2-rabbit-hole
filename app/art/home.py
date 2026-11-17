@@ -3,7 +3,8 @@
 The glasses show 16 levels of green on black, so the art uses brightness levels 0 to 15.
 It is drawn on a 96 x 48 grid and scaled 3x to 288 x 144, the largest picture the display
 allows. Run from the app folder:  python3 art/home.py
-It writes src/home.png (sent to the glasses) and art/logo.png (green, for the README).
+It writes src/home-0.png to home-7.png (the frames of the opening screen's animation: the
+moon bobs and the stars twinkle) and art/logo.png (the first frame in green, for the README).
 """
 import struct, sys, zlib
 
@@ -35,11 +36,35 @@ def rect(x0, y0, x1, y1, level):
 # The picture is therefore built from three levels and from black gaps.
 BRIGHT, MID, DIM = 15, 4, 1
 
-# ── sky: a crescent moon and a few stars ──
-ellipse(11, 8, 4.5, 4.5, BRIGHT)
-ellipse(13, 7, 4, 4, 0)
-for x, y, level in [(26, 5, MID), (38, 10, DIM), (52, 4, MID), (64, 9, DIM), (4, 20, DIM), (31, 16, DIM), (92, 6, MID)]:
-    dot(x, y, level)
+# ── sky: a crescent moon and a few stars, which move (see `frame` below) ──
+# The app shows the frames in turn. The moon steps one art pixel (three on the display) up,
+# back, down, back, holding each place for two frames; each star runs through TWINKLE,
+# every star starting at a different point so that they do not blink together. The light
+# the moon throws on the tree moves with it.
+STARS = [(26, 5), (38, 10), (52, 4), (64, 9), (4, 20), (31, 16), (92, 6)]
+MOON = [0, 0, -1, -1, 0, 0, 1, 1]
+TWINKLE = [MID, MID, BRIGHT, MID, MID, DIM, 0, DIM]
+
+
+def frame(step):
+    """The finished scene with the sky as it is at `step`. The scene stays in front."""
+    global px
+    scene, px = px, [[0] * W for _ in range(H)]
+    ellipse(11, 8 + MOON[step], 4.5, 4.5, BRIGHT)
+    ellipse(13, 7 + MOON[step], 4, 4, 0)
+    for i, (x, y) in enumerate(STARS):
+        dot(x, y, TWINKLE[(step + 3 * i) % len(TWINKLE)])
+    px = [[s or k for s, k in zip(scene_row, sky_row)] for scene_row, sky_row in zip(scene, px)]
+    for cx, cy, r in LIT:  # moonlight on the tree, following the moon up and down
+        ellipse(cx, cy + MOON[step], r, r * 0.7, BRIGHT, only=lambda x, y: (x, y) in CANOPY)
+    for x, y in GAPS:
+        dot(x, y, 0)  # gaps between the leaves
+    for i, (x, y) in enumerate(GLINTS):
+        if step in (2 * i + 1, 2 * i + 2):
+            dot(x, y, BRIGHT)
+    out, px = px, scene
+    return out
+
 
 # ── tree: trunk, a branch, and a canopy of clumps separated by dark gaps ──
 rect(78, 22, 81, GROUND, MID)
@@ -50,10 +75,15 @@ for i in range(5):  # branch reaching left
 clumps = [(80, 12, 9), (71, 17, 6.5), (89, 17, 6.5), (76, 21, 5), (85, 21, 5)]
 for cx, cy, r in clumps:
     ellipse(cx, cy, r, r * 0.85, MID)
-for cx, cy, r in [(78, 10, 6), (70, 15, 3.5), (88, 15, 3.5)]:  # lit top of each clump
-    ellipse(cx, cy, r, r * 0.7, BRIGHT)
-for x, y in [(77, 17), (78, 18), (83, 16), (84, 17), (71, 21), (90, 20), (81, 22), (74, 13), (75, 14), (86, 13), (85, 14), (80, 19)]:
-    dot(x, y, 0)  # gaps between the leaves
+CANOPY = {(x, y) for y in range(H) for x in range(W)
+          if any(((x - cx) / r) ** 2 + ((y - cy) / (r * 0.85)) ** 2 <= 1 for cx, cy, r in clumps)}
+# The moonlight on the canopy is drawn per frame (see `frame`): the moon is to the upper
+# left, so each clump is lit on its upper left, and the lit patches rise and sink with it.
+LIT = [(78, 10, 6), (70, 15, 3.5), (88, 15, 3.5)]
+GAPS = [(77, 17), (78, 18), (83, 16), (84, 17), (71, 21), (90, 20), (81, 22), (74, 13), (75, 14), (86, 13), (85, 14), (80, 19)]
+# Single leaves that catch the light for two frames each, one after another, so a glint
+# wanders across the shaded part of the canopy. None is lit in frame 0 (the logo).
+GLINTS = [(67, 19), (75, 23), (84, 19)]
 
 # ── burrow: a dim mound with a bright rim around a black hole ──
 ellipse(27, GROUND, 17, 9, MID, only=lambda x, y: y <= GROUND)
@@ -104,9 +134,11 @@ def write_png(path, width, height, colour_type, rows):
     print(f'wrote {path}: {width} x {height}, {len(png)} bytes')
 
 
-# ── the picture the app sends to the glasses: 8-bit greyscale, level 15 = white ──
-grey = b''.join(b'\x00' + bytes(v * 17 for v in row for _ in range(SCALE)) for row in px for _ in range(SCALE))
-write_png('src/home.png', W * SCALE, H * SCALE, 0, grey)
+# ── the pictures the app sends to the glasses: 8-bit greyscale, level 15 = white ──
+for step in range(len(MOON)):
+    grey = b''.join(b'\x00' + bytes(v * 17 for v in row for _ in range(SCALE)) for row in frame(step) for _ in range(SCALE))
+    write_png(f'src/home-{step}.png', W * SCALE, H * SCALE, 0, grey)
+px = frame(0)
 
 # ── the logo for the README: as the display shows it, in green and three times larger ──
 LOGO = SCALE * 3

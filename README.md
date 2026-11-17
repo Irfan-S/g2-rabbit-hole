@@ -173,8 +173,9 @@ A public listing goes through review in Even's developer portal, not the CLI. Th
 store icon is drawn by `app/art/icon.py`.
 
 The opening picture is drawn by `app/art/home.py`: `python3 art/home.py` rewrites
-`app/src/home.png`, which the app sends to the glasses, and `app/art/logo.png`, the
-green version at the top of this page.
+`app/src/home-0.png` to `home-7.png`, the frames the app sends to the glasses in turn (the
+moon bobs and the stars twinkle), and `app/art/logo.png`, the green version of the first
+frame at the top of this page.
 
 ## Settings
 

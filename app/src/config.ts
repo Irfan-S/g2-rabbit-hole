@@ -84,6 +84,13 @@ export const COVER_IMAGE = { x: (CANVAS_W - 288) / 2, y: 4, w: 288, h: 144 }
 export const COVER_TEXT: Box = { x: 0, y: 152, w: CANVAS_W, h: 136, pad: 4, border: 0 }
 /** How long the cover stays up before reading starts (a press skips it). */
 export const COVER_MS = 3000
+/**
+ * The opening screen's animation (frames drawn by art/home.py): the pause between frames,
+ * on top of however long the glasses take to show one, and how long it runs before
+ * resting, so glasses left on the opening screen do not transmit for ever. 0 = no animation.
+ */
+export const HOME_FRAME_MS = 600
+export const HOME_ANIMATE_MS = 30000
 
 export const innerWidth = (box: Box) => box.w - 2 * (box.pad + box.border)
 export const innerHeight = (box: Box) => box.h - 2 * (box.pad + box.border)

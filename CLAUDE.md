@@ -112,9 +112,25 @@ in `app/.env.local` to `http://<LAN-ip>:8787`.
 
 ## Opening screen and how the display shows grey (2026-11-17)
 
-The home screen is the `cover` layout with `app/src/home.png` (a rabbit beside a burrow and a
-tree, drawn by `app/art/home.py`) and three lines under it; plain text if the picture fails.
-Checked in the simulator only. While making it: the simulator, which says it matches the
+The home screen is the `cover` layout with a picture of a rabbit beside a burrow and a tree
+(drawn by `app/art/home.py`) and three lines under it; plain text if the picture fails.
+**Animated since 2026-11-17, at the user's request (on Even Hub as 0.1.6):** the
+script writes eight frames, `app/src/home-0.png` to `home-7.png`, in which the moon steps one
+art pixel (three on the display) up and down and each star runs through bright, dim and off,
+out of step with the others. The user also asked for moonlight on the tree that "makes
+sense": the lit patches on the canopy rise and sink with the moon (it is to the upper left,
+so they sit on the upper left of each clump), and one leaf at a time glints in the shade. The user wants the steppy pixel look, so no in-between frames.
+`animateHome` in `main.ts` sends the next whole 288 x 144 picture (about 690 bytes as a PNG)
+with `Glass.coverFrame` once the previous one has arrived plus `HOME_FRAME_MS` (600), and
+stops after `HOME_ANIMATE_MS` (30 s) or on leaving the opening screen; `HOME_FRAME_MS = 0`
+makes it static again. In the simulator the eight frames cycle about every 0.7 s and stop at
+30 s (its page has to be kept awake with webview screenshots, or it sleeps after a few
+seconds). Unknown, and the reason for trying it: how fast real glasses redraw a full
+288 x 144 picture, and whether a press is delayed while a frame is on its way. If it
+stutters, raise `HOME_FRAME_MS` or animate only a strip of sky. The README logo is the first
+frame, so two of its stars changed brightness. Uploaded and promoted to beta as 0.1.6 with
+the user's go-ahead, to try on the glasses; not yet seen there.
+The static version was checked in the simulator only. While making it: the simulator, which says it matches the
 glasses' grey conversion, shows level 4 of 15 at about 67% brightness and level 1 at about 44%
 (roughly level^0.3). Soft shading therefore disappears, so the art uses three levels (15, 4, 1)
 and black gaps. The same curve is why cover and section photos look washed out; darkening
@@ -329,8 +345,8 @@ close the saved word is when the app is closed while playing (up to 3 s behind u
 exit event arrives), and whether a hold on the opening screen is delivered by the ring
 there. A resumed topic is whatever had streamed when it was saved: one cut short by leaving
 ends where it stopped. With the user's go-ahead it was uploaded and promoted to beta as
-0.1.5 the same day; the listing's description (which gained a line about resuming in
-`store-description.txt`) was not sent to Even Hub.
+0.1.5 the same day, and the listing's description was updated from
+`store-description.txt` (it gained a line about resuming; read back from Even Hub).
 
 ## Motion while walking (thought through, nothing built)
 

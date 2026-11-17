@@ -21,6 +21,8 @@ import {
   API_TOKEN,
   CANVAS_W,
   COVER_MS,
+  HOME_ANIMATE_MS,
+  HOME_FRAME_MS,
   COVER_TEXT,
   MAX_ASK_MS,
   MAX_LISTEN_MS,
@@ -38,8 +40,11 @@ import {
   innerWidth,
   lineCapacity,
 } from './config'
-import { Glass } from './glass'
-import homeArt from './home.png'
+import { Glass, photoPng } from './glass'
+// The opening picture's frames, in order (home-0.png ...), as URLs.
+const homeArt = Object.entries(import.meta.glob<string>('./home-*.png', { eager: true, import: 'default' }))
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([, url]) => url)
 import { parseHistory, recordVisit } from './history'
 import { Reader } from './reader'
 import { placeLine } from './text'
@@ -180,11 +185,37 @@ async function showHome() {
   const resume = saved ? pxTruncate(`Hold: resume ${sessionLabel(saved)}`, width - 8) : ''
   const lines = resume ? [...HOME_LINES, resume] : HOME_LINES
   const text = lines.map(line => placeLine(line, width, 1, getTextWidth)).join('\n')
-  const shown = await glass.cover(text, homeArt).catch(err => {
+  const shown = await glass.cover(text, homeArt[0] ?? '').catch(err => {
     console.warn('home picture failed:', err)
     return false
   })
   if (!shown) await glass.message(resume ? `${HOME_TEXT}\n${resume}` : HOME_TEXT)
+  else void animateHome()
+}
+
+let homeFrames: Uint8Array[] | null = null
+let homeRun = 0
+
+/**
+ * Plays the opening picture's frames in a loop (the moon bobs, the stars twinkle) while
+ * the opening screen is up. Each frame is a whole new picture sent to the glasses, so one
+ * is sent only after the last has arrived, and the loop stops after HOME_ANIMATE_MS.
+ */
+async function animateHome() {
+  if (!HOME_FRAME_MS || homeArt.length < 2) return
+  const run = ++homeRun
+  try {
+    const frames = (homeFrames ??= await Promise.all(homeArt.map(url => photoPng(url))))
+    const until = Date.now() + HOME_ANIMATE_MS
+    for (let i = 1; Date.now() < until; i++) {
+      await new Promise(resolve => window.setTimeout(resolve, HOME_FRAME_MS))
+      // Left the opening screen, or came back to it and started a newer loop.
+      if (state !== 'home' || run !== homeRun) return
+      if (!(await glass.coverFrame(frames[i % frames.length]!))) return
+    }
+  } catch (err) {
+    console.warn('home animation stopped:', err)
+  }
 }
 
 // ── the saved session ──

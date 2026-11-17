@@ -296,6 +296,20 @@ export class Glass {
     })
   }
 
+  /**
+   * Replaces the picture on the cover layout (a frame of the opening screen's animation).
+   * False if that layout is no longer showing or the glasses refuse the picture.
+   */
+  coverFrame(png: Uint8Array): Promise<boolean> {
+    return this.run(async () => {
+      if (this.layout !== 'cover') return false
+      const result = await this.bridge.updateImageRawData(
+        new ImageRawDataUpdate({ containerID: 2, containerName: 'photo', imageData: png }),
+      )
+      return result === ImageRawDataUpdateResult.success
+    })
+  }
+
   /** Switches to the reader layout. */
   reader(initial: { word: string; para: string; status: string }): Promise<void> {
     const image = (name: string, id: number, box: { x: number; y: number; w: number; h: number }) =>
