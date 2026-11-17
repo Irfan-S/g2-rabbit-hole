@@ -1,5 +1,16 @@
-# https for the backend. Caddy obtains and renews the certificate for DOMAIN itself.
+# https for the backend. Caddy obtains and renews the certificate itself.
+#
+# DOMAIN is either a hostname that points at this server, or the server's bare IP address.
+# For a bare IP, also set ACME_PROFILE=shortlived: Let's Encrypt only issues IP address
+# certificates under that profile (valid about six days; Caddy renews them on its own).
+# Left to itself, Caddy would give an IP address a self-signed certificate that phones
+# reject, which is why the issuer is named explicitly here.
 {$DOMAIN} {
+	tls {
+		issuer acme {
+			profile {$ACME_PROFILE:classic}
+		}
+	}
 	reverse_proxy backend:8787 {
 		# Topics are streamed paragraph by paragraph: pass each one on at once
 		# instead of collecting the response first.

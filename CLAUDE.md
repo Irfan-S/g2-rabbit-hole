@@ -161,7 +161,13 @@ The user then asked about Vultr: their pricing page listed 1 vCPU / 1 GB at $5 a
 (0.5 GB at $3.50, and $2.50 IPv6-only), and asked for setup files. `server/compose.yaml` runs
 the backend behind Caddy (`server/Caddyfile`) for automatic https on `DOMAIN`; README has the
 steps. NOT run anywhere: no Docker daemon here, so compose and Caddy are unverified beyond the
-YAML parsing. In production (`NODE_ENV=production`, set by the Dockerfile) the server now exits
+YAML parsing. The user wants to try a bare IP address instead of a hostname, with
+encryption. Checked the same day: Let's Encrypt IP certificates are generally available but
+only under its `shortlived` profile (160 hours), and Caddy's ACME issuer has a `profile`
+option (marked experimental). So the Caddyfile names the ACME issuer explicitly (for an IP
+address Caddy would otherwise self-sign) with `profile {$ACME_PROFILE:classic}`; set
+`ACME_PROFILE=shortlived` with an IP in `DOMAIN`. Untested: whether Caddy actually completes
+an IP order. The user plans a Vultr Cloud Compute 1 vCPU / 1 GB with Ubuntu LTS. In production (`NODE_ENV=production`, set by the Dockerfile) the server now exits
 at start if `APP_TOKEN` is empty. The token path was checked live on a local production-mode
 run: 401 without or with a wrong `X-App-Token`, normal service with the right one, `/health`
 open, CORS preflight for the header passes.

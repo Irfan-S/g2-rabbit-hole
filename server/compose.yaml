@@ -3,8 +3,10 @@
 #   cp .env.example .env     then fill in the keys, APP_TOKEN and DOMAIN
 #   docker compose up -d --build
 #
-# Caddy gets a free certificate for DOMAIN by itself, so DOMAIN must already point at
-# this server and ports 80 and 443 must be open. Only Caddy is reachable from outside.
+# Caddy gets a free certificate for DOMAIN by itself. DOMAIN is a hostname that already
+# points at this server, or the server's bare IP address (then also set
+# ACME_PROFILE=shortlived in .env). Ports 80 and 443 must be open. Only Caddy is
+# reachable from outside.
 
 services:
   backend:
@@ -27,7 +29,8 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN in .env to the hostname that points at this server}
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env to this server's hostname or IP address}
+      ACME_PROFILE: ${ACME_PROFILE:-classic}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data # certificates live here: keep it between restarts

@@ -112,8 +112,10 @@ one shared core is enough for personal use.
 1. **Create the server.** Any provider works. On Vultr that is Cloud Compute, Regular
    Performance, 1 vCPU / 1 GB, with Ubuntu; their Docker marketplace image saves a step.
    Not the IPv6-only plan. Open ports 80 and 443 if a firewall is on.
-2. **Point a hostname at it.** Add an A record for, say, `rabbit.example.com` with the
-   server's IP address. Caddy cannot get a certificate until this resolves.
+2. **Decide the address.** Either add an A record for a hostname, say
+   `rabbit.example.com`, with the server's IP address (Caddy cannot get a certificate
+   until it resolves), or use the bare IP address and skip DNS altogether. Let's Encrypt
+   issues certificates for IP addresses too, valid about six days and renewed by Caddy.
 3. **Install and start** (on the server; skip the first line on a Docker image):
 
    ```bash
@@ -125,6 +127,7 @@ one shared core is enough for personal use.
 
    In `.env`: `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, your contact address in
    `WIKI_USER_AGENT`, `APP_TOKEN` (make one with `openssl rand -hex 32`) and `DOMAIN`.
+   For a bare IP address, `DOMAIN=203.0.113.7` plus `ACME_PROFILE=shortlived`.
    The backend refuses to start on a server without `APP_TOKEN`.
 4. **Check it:** `curl https://rabbit.example.com/health` should print `{"ok":true}`.
 5. **Point the app at it.** In `app/.env.local` set `VITE_API_BASE=https://rabbit.example.com`
